@@ -23,7 +23,7 @@ __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *v
     for (int j = 0; j < lines_num; j++) {
         float result = 0.0f;
         for (int i = begin; i < end; i++) {
-            result += vin[idx[i] * INFEATURE + j] * val[i];
+            result += vin[idx[i] * INFEATURE + j * 32] * val[i];
         }
         vout[row_of_thr * INFEATURE + j] = result; 
     }
