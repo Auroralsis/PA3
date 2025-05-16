@@ -9,31 +9,30 @@ __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *v
     // INFEATURE是输入的稠密矩阵的列数，M*K中的K
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int bid = blockIdx.x;
+
+    // 对于INFEARTURE = 32 或 256，分别确定一行计算需要使用的线程块个数
+    int lines_num = INFEATURE / WARP_SIZE;
 
     // 根据线程id求出该线程负责的具体稀疏矩阵中的一行以及其需要计算的列
-    int row_of_thr = tid / WARP_SIZE;
-    int line_of_thr = tid % WARP_SIZE;
-
-    // 对于INFERTURE=32 或 256，计算每个线程应该负责的列的个数
-    int lines_num = INFEATURE / WARP_SIZE;
+    int row_of_thr = tid / (WARP_SIZE * lines_num);
+    int line_of_thr = tid % (WARP_SIZE * lines_num);
 
     if (row_of_thr >= num_v) return;
     int begin = ptr[row_of_thr], end = ptr[row_of_thr + 1];
 
-    for (int j = 0; j < lines_num; j++) {
-        float result = 0.0f;
-        for (int i = begin; i < end; i++) {
-            result += vin[idx[i] * INFEATURE + j * 32 + line_of_thr] * val[i];
-        }
-        vout[row_of_thr * INFEATURE + j * 32 + line_of_thr] = result;
+    float result = 0.0f;
+    for (int i = begin; i < end; i++) {
+        result += vin[idx[i] * INFEATURE + line_of_thr] * val[i];
     }
+    vout[row_of_thr * INFEATURE + line_of_thr] = result;
 }
 
 void SpMMOpt::preprocess(float *vin, float *vout) {
     // TODO: your code
-    const int ROW_SIZE = 1;
-    int BLOCK_SIZE = WARP_SIZE * ROW_SIZE;
-    grid.x = (num_v + ROW_SIZE - 1) / ROW_SIZE;
+    int ROW_SIZE = feat_in / 32;
+    int BLOCK_SIZE = WARP_SIZE;
+    grid.x = num_v * ROW_SIZE;
     block.x = BLOCK_SIZE;
 }
 
