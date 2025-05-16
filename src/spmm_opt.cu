@@ -128,6 +128,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
+    printf("run");
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         dense_bid2order, dense_order2posi, sum_of_blocks);
     spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
