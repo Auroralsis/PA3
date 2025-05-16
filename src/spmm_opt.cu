@@ -86,6 +86,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 计算稠密行的个数和应该分配的总共的线程块数
     int dense_rows = 0;
     int dense_blocks_num = 0;
+    printf("preprocess");
 
     for (int i = 0; i < num_v; i++) {
         num_of_row[i] = d_ptr[i+1] - d_ptr[i];
