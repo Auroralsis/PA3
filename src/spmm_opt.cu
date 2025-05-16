@@ -7,11 +7,12 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % TILE_SIZE;
+    int offset = tid % INFEATURE;
 
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
     int posi = dense_order2posi[order];
+    if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
 
     // 计算该线程块在该行应该计算的part的位置
@@ -19,11 +20,30 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int length = (part + 1) * TILE_SIZE > (end - begin) ? (end - begin) % TILE_SIZE : TILE_SIZE;
 
     float result = 0.0f;
+    #pragma unroll
     for (int i = 0; i < length; i++) {
         int j = i + begin + part * TILE_SIZE;
         result += vin[idx[j] * INFEATURE + offset] * val[j];
     }
     atomicAdd(&vout[posi * INFEATURE + offset], result);
+}
+
+__global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
+    int *sparse_bid2posi) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int bid = blockIdx.x;
+    int offset = tid % INFEATURE;
+
+    int posi = sparse_bid2posi[bid];
+    if (posi >= num_v) return;
+    int begin = ptr[posi], end = ptr[posi + 1];
+    float result = 0.0f;
+
+    #pragma unroll
+    for (int i = begin; i < end; i++) {
+        result += vin[idx[i] * INFEATURE + offset] * val[i];
+    }
+    vout[posi * INFEATURE + offset] = result;
 }
 
 __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *vin, float *vout, int num_v, int INFEATURE) {
@@ -100,7 +120,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个8*32的线程块来计算，根据该稠密行的稠密元素的数量决定
     // 稀疏行类似
     dense_grid.x = dense_blocks_num;
-    dense_block.x = 32*32;
+    dense_block.x = 8*32;
 
     sparse_grid.x = num_v - dense_rows;
     sparse_block.x = 8*32;
@@ -110,5 +130,7 @@ void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         dense_bid2order, dense_order2posi, sum_of_blocks);
-    spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
+    spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+        sparse_bid2posi);
+    // spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
 }
