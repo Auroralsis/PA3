@@ -1,6 +1,30 @@
 #include "spmm_opt.h"
 
 const int WARP_SIZE = 32;
+const int TILE_SIZE = 256;
+
+__global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
+    int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int bid = blockIdx.x;
+    int offset = tid % TILE_SIZE;
+
+    // 计算该线程块实际对应的需要计算的位置
+    int order = dense_bid2order[bid];
+    int posi = dense_order2posi[order];
+    int begin = ptr[posi], end = ptr[posi + 1];
+
+    // 计算该线程块在该行应该计算的part的位置
+    int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
+    int length = (part + 1) * TILE_SIZE > (end - begin) ? (end - begin) % TILE_SIZE : TILE_SIZE;
+
+    float result = 0.0f;
+    for (int i = 0; i < length; i++) {
+        int j = i + begin + part * TILE_SIZE;
+        result += vin[idx[j] * INFEATURE + offset] * val[j];
+    }
+    atomicAdd(&vout[posi * INFEATURE + offset], result);
+}
 
 __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *vin, float *vout, int num_v, int INFEATURE) {
     // ptr, idx, val分别是稀疏矩阵的CSR格式对应的数组
@@ -22,6 +46,8 @@ __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *v
     int begin = ptr[row_of_thr], end = ptr[row_of_thr + 1];
 
     float result = 0.0f;
+
+    #pragma unroll
     for (int i = begin; i < end; i++) {
         result += vin[idx[i] * INFEATURE + line_of_thr] * val[i];
     }
@@ -34,9 +60,55 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int BLOCK_SIZE = WARP_SIZE;
     grid.x = num_v * ROW_SIZE;
     block.x = BLOCK_SIZE;
+
+    // 挑选出稀疏矩阵中的稠密行
+    num_of_row = new int[num_v];
+    // 计算稠密行的个数和应该分配的总共的线程块数
+    int dense_rows = 0;
+    int dense_blocks_num = 0;
+
+    for (int i = 0; i < num_v; i++) {
+        num_of_row[i] = d_ptr[i+1] - d_ptr[i];
+        if (num_of_row[i] >= TILE_SIZE) {
+            dense_rows += 1;
+            dense_blocks_num += num_of_row[i] / TILE_SIZE;
+        }
+    }
+    dense_bid2order = new int[dense_blocks_num];
+    dense_order2posi = new int[dense_rows];
+    sum_of_blocks = new int[dense_rows];
+
+    sparse_bid2posi = new int[num_v - dense_rows];
+    int temp = 0;
+
+    for (int i = 0, j = 0, k = 0, l = 0; i < num_v; i++) {
+        if (num_of_row[i] >= TILE_SIZE) {
+            temp = (num_of_row[i] - 1) / TILE_SIZE + 1;
+            for (int p = 0; p < temp; p++) {
+                dense_bid2order[j+p] = l;
+            }
+            j += temp;
+            dense_order2posi[l] = i;
+            sum_of_blocks[l] = temp;
+            l++;
+        } else {
+            sparse_bid2posi[k] = i;
+            k++;
+        }
+    }
+
+    // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个8*32的线程块来计算，根据该稠密行的稠密元素的数量决定
+    // 稀疏行类似
+    dense_grid.x = dense_blocks_num;
+    dense_block.x = 32*32;
+
+    sparse_grid.x = num_v - dense_rows;
+    sparse_block.x = 8*32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
+    spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+        dense_bid2order, dense_order2posi, sum_of_blocks);
     spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
 }

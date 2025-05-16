@@ -23,5 +23,19 @@ public:
 private:
     int num_target;
     int *target, *ptr_scheduled;
+
+    // 稀疏矩阵中每一行的非零元个数
+    int *num_of_row;
+    // 用于表示顺序对应的实际稀疏矩阵中的posi
+    int *dense_order2posi;
+    int *dense_bid2order;
+    int *sum_of_blocks;
+    // 稀疏行直接用bid对应实际稀疏矩阵中的posi
+    int *sparse_bid2posi;
+
+    dim3 dense_grid;
+    dim3 sparse_grid;
+    dim3 dense_block;
+    dim3 sparse_block;
 };
 #endif
