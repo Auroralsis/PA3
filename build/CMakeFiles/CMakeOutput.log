@@ -1103,3 +1103,53 @@ Parsed C implicit link information from above output:
   implicit fwks: []
 
 
+The system is: Linux - 6.6.87.1-microsoft-standard-WSL2 - x86_64
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: /usr/bin/g++ 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+
+The CXX compiler identification is GNU, found in "/home/lxy/sources/lessons/thuhpc/PA3/build/CMakeFiles/3.25.1/CompilerIdCXX/a.out"
+
+Checking whether the CUDA compiler is NVIDIA using "" matched "nvcc: NVIDIA \(R\) Cuda compiler driver":
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Oct_29_23:50:19_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.85
+Build cuda_12.6.r12.6/compiler.35059454_0
+Checking whether the CUDA compiler is NVIDIA using "" matched "nvcc: NVIDIA \(R\) Cuda compiler driver":
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Oct_29_23:50:19_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.85
+Build cuda_12.6.r12.6/compiler.35059454_0
+Checking whether the CUDA compiler is NVIDIA using "" matched "nvcc: NVIDIA \(R\) Cuda compiler driver":
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Oct_29_23:50:19_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.85
+Build cuda_12.6.r12.6/compiler.35059454_0
+Checking whether the CUDA compiler is NVIDIA using "" matched "nvcc: NVIDIA \(R\) Cuda compiler driver":
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Oct_29_23:50:19_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.85
+Build cuda_12.6.r12.6/compiler.35059454_0
+Checking whether the CUDA compiler is NVIDIA using "" matched "nvcc: NVIDIA \(R\) Cuda compiler driver":
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Oct_29_23:50:19_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.85
+Build cuda_12.6.r12.6/compiler.35059454_0
+Checking whether the CUDA compiler is NVIDIA using "" matched "nvcc: NVIDIA \(R\) Cuda compiler driver":
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Oct_29_23:50:19_PDT_2024
+Cuda compilation tools, release 12.6, V12.6.85
+Build cuda_12.6.r12.6/compiler.35059454_0
