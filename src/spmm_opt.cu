@@ -55,7 +55,6 @@ __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *v
     // INFEATURE是输入的稠密矩阵的列数，M*K中的K
 
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int bid = blockIdx.x;
 
     // 对于INFEARTURE = 32 或 256，分别确定一行计算需要使用的线程块个数
     int lines_num = INFEATURE / WARP_SIZE;
@@ -83,7 +82,6 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     grid.x = num_v * ROW_SIZE;
     block.x = BLOCK_SIZE;
 
-    printf("preprocess");
     // 挑选出稀疏矩阵中的稠密行
     num_of_row = new int[num_v];
     // 计算稠密行的个数和应该分配的总共的线程块数
@@ -132,9 +130,9 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
     printf("run");
-    spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
-        dense_bid2order, dense_order2posi, sum_of_blocks);
-    spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
-        sparse_bid2posi);
-    // spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
+    // spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+    //     dense_bid2order, dense_order2posi, sum_of_blocks);
+    // spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+    //     sparse_bid2posi);
+    spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
 }
