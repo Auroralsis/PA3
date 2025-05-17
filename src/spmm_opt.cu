@@ -24,6 +24,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int posi = dense_order2posi[order];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
+    printf("%d\n", end-begin);
     
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
@@ -157,10 +158,10 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
-    dim3 grid1, block1;
-    grid1.x = 1;
-    block1.x = 1;
-    print<<<grid1, block1>>>(dense_rows, dense_blocks_num, d_dense_order2posi, d_dense_bid2order);
+    // dim3 grid1, block1;
+    // grid1.x = 1;
+    // block1.x = 1;
+    // print<<<grid1, block1>>>(dense_rows, dense_blocks_num, d_dense_order2posi, d_dense_bid2order);
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_dense_bid2order, d_dense_order2posi, d_sum_of_blocks);
     spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
