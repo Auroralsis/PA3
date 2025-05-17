@@ -54,6 +54,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
         shm_val[offset] = val[begin + offset];
         shm_idx[offset] = idx[begin + offset];
     }
+    __syncthreads();
 
     #pragma unroll
     for (int i = 0; i < end - begin; i++) {
