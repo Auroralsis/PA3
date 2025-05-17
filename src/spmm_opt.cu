@@ -8,7 +8,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int bid = blockIdx.x;
     int offset = tid % (32*32);
     int parts = TILE_SIZE / (32 * 32 / TILE_SIZE);
-    int s_part = offset / TILE_SIZE;
+    int s_part = offset / INFEATURE;
     int col_of_thr = offset % INFEATURE;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
