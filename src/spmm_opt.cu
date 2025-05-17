@@ -28,21 +28,14 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    if (part != 0) return;
+    int length = (part + 1) * TILE_SIZE > (end - begin) ? (end - begin) % TILE_SIZE : TILE_SIZE;
+
     float result = 0.0f;
     #pragma unroll
-    for (int i = begin; i < end; i++) {
+    for (int i = begin + part * TILE_SIZE; i < length + begin + part * TILE_SIZE; i++) {
         result += vin[idx[i] * INFEATURE + offset] * val[i];
     }
-    vout[posi * INFEATURE + offset] = result;
-    // int length = (part + 1) * TILE_SIZE > (end - begin) ? (end - begin) % TILE_SIZE : TILE_SIZE;
-
-    // float result = 0.0f;
-    // #pragma unroll
-    // for (int i = begin + part * TILE_SIZE; i < length + begin + part * TILE_SIZE; i++) {
-    //     result += vin[idx[i] * INFEATURE + offset] * val[i];
-    // }
-    // atomicAdd(&vout[posi * INFEATURE + offset], result);
+    atomicAdd(&vout[posi * INFEATURE + offset], result);
 }
 
 __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
