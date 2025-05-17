@@ -31,7 +31,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 64;
+    int offset = tid % 128;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
@@ -39,12 +39,12 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     float result;
 
     #pragma unroll
-    for (int j = 0; j < 4; j++) {
+    for (int j = 0; j < 2; j++) {
         result = 0.0f;
         for (int i = begin; i < end; i++) {
-            result += vin[idx[i] * INFEATURE + offset + j * 64] * val[i];
+            result += vin[idx[i] * INFEATURE + offset + j * 128] * val[i];
         }
-        vout[posi * INFEATURE + offset + j * 64] = result;
+        vout[posi * INFEATURE + offset + j * 128] = result;
     }
 }
 
@@ -133,7 +133,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     dense_block.x = 32*32;
 
     sparse_grid.x = num_v - dense_rows;
-    sparse_block.x = 2*32;
+    sparse_block.x = 4*32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
