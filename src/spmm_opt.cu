@@ -6,7 +6,6 @@ const int TILE_SIZE = 256;
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
     int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     
-    printf("running");
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     int offset = tid % INFEATURE;
@@ -142,7 +141,6 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
-    printf("run");
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_dense_bid2order, d_dense_order2posi, d_sum_of_blocks);
     spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
