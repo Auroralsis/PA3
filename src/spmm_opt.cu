@@ -19,6 +19,8 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
 
     if (part != 0) return;
     float result = 0.0f;
+    printf("posi:%d\n", posi);
+    #pragma unroll
     for (int i = begin; i < end; i++) {
         result += vin[idx[i] * INFEATURE + offset] * val[i];
     }
@@ -43,6 +45,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     if (posi >= num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     float result = 0.0f;
+    printf("posi:%d\n", posi);
 
     #pragma unroll
     for (int i = begin; i < end; i++) {
