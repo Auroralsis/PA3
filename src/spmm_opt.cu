@@ -25,10 +25,10 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     if (posi >= num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     
-    // // 计算该线程块在该行应该计算的part的位置
-    // int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
+    // 计算该线程块在该行应该计算的part的位置
+    int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    // if (part != 0) return;
+    if (part != 0) return;
     float result = 0.0f;
     #pragma unroll
     for (int i = begin; i < end; i++) {
