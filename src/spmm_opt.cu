@@ -17,14 +17,13 @@ __global__ void print(int dense_rows, int dense_blocks_num, int *d_dense_order2p
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % INFEATURE;
+    int offset = tid % 256;
 
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
     int posi = dense_order2posi[order];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
-    printf("%d\n", end-begin);
     
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
@@ -50,10 +49,10 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % INFEATURE;
+    int offset = tid % 256;
 
     int posi = sparse_bid2posi[bid];
-    if (posi >= num_v) return;
+    if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     float result = 0.0f;
 
