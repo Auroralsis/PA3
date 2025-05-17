@@ -92,7 +92,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
             dense_blocks_num += (d_ptr[i+1] - d_ptr[i]) / TILE_SIZE;
         }
     }
-    // dense_bid2order = new int[dense_blocks_num];
+    dense_bid2order = new int[dense_blocks_num];
     // dense_order2posi = new int[dense_rows];
     // sum_of_blocks = new int[dense_rows];
 
