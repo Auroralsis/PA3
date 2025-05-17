@@ -22,9 +22,8 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
 
     float result = 0.0f;
     #pragma unroll
-    for (int i = 0; i < length; i++) {
-        int j = i + begin + part * TILE_SIZE;
-        result += vin[idx[j] * INFEATURE + offset] * val[j];
+    for (int i = begin + part * TILE_SIZE; i < length + begin + part * TILE_SIZE; i++) {
+        result += vin[idx[i] * INFEATURE + offset] * val[i];
     }
     atomicAdd(&vout[posi * INFEATURE + offset], result);
 }
