@@ -9,6 +9,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int offset = tid % (32*32);
     int s_part = offset / 256;
     int col_of_thr = offset % 256;
+    __shared__ float shm[256];
 
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
@@ -19,6 +20,10 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
+    if (offset < 256) {
+        shm[offset] = val[begin + part * 256 + offset];
+    }
+    __syncthreads();
     float result = 0.0f;
     #pragma unroll
     for (int i = begin + part * 256 + s_part * 64; i < min(begin + part * 256 + (s_part + 1) * 64, end); i++) {
@@ -31,21 +36,18 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 128;
+    int offset = tid % 256;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
-    float result;
+    float result = 0.0f;
 
     #pragma unroll
-    for (int j = 0; j < 2; j++) {
-        result = 0.0f;
-        for (int i = begin; i < end; i++) {
-            result += vin[idx[i] * INFEATURE + offset + j * 128] * val[i];
-        }
-        vout[posi * INFEATURE + offset + j * 128] = result;
+    for (int i = begin; i < end; i++) {
+        result += vin[idx[i] * INFEATURE + offset] * val[i];
     }
+    vout[posi * INFEATURE + offset] = result;
 }
 
 __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *vin, float *vout, int num_v, int INFEATURE) {
@@ -133,7 +135,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     dense_block.x = 32*32;
 
     sparse_grid.x = num_v - dense_rows;
-    sparse_block.x = 4*32;
+    sparse_block.x = 8*32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
