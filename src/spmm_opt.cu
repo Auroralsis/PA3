@@ -47,9 +47,17 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int begin = ptr[posi], end = ptr[posi + 1];
     float result = 0.0f;
 
+    __shared__ float shm_val[256];
+    __shared__ int shm_idx[256];
+
+    if (offset < end - begin) {
+        shm_val[offset] = val[begin + offset];
+        shm_idx[offset] = idx[begin + offset];
+    }
+
     #pragma unroll
-    for (int i = begin; i < end; i++) {
-        result += vin[idx[i] * INFEATURE + offset] * val[i];
+    for (int i = 0; i < end - begin; i++) {
+        result += vin[shm_idx[i] * INFEATURE + offset] * shm_val[i];
     }
     vout[posi * INFEATURE + offset] = result;
 }
