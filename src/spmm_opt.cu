@@ -125,7 +125,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
             }
             j += temp;
             h_dense_order2posi[l] = i;
-            h_sum_of_blocks[l] = temp;
+            h_sum_of_blocks[l] = l == 0 ? temp : temp + h_sum_of_blocks[l-1];
             l++;
         } else {
             h_sparse_bid2posi[k] = i;
