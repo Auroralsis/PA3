@@ -85,9 +85,16 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 计算稠密行的个数和应该分配的总共的线程块数
     int dense_rows = 0;
     int dense_blocks_num = 0;
+
+    int *l_ptr = new int[num_v + 1];
+    int *l_idx = new int[num_e];
+    float *l_val = new float[num_e];
+    checkCudaErrors(cudaMemcpy(l_ptr, d_ptr, (num_v + 1) * sizeof(int), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(l_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(l_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
     
     for (int i = 0; i < num_v; i++) {
-        if (d_ptr[i+1] - d_ptr[i] >= TILE_SIZE) {
+        if (l_ptr[i+1] - l_ptr[i] >= TILE_SIZE) {
             dense_rows += 1;
             dense_blocks_num += (d_ptr[i+1] - d_ptr[i]) / TILE_SIZE;
         }

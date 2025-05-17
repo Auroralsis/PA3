@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "array": "cpp",
+        "fstream": "cpp",
+        "istream": "cpp",
+        "limits": "cpp",
+        "functional": "cpp",
+        "typeinfo": "cpp"
+    }
+}
