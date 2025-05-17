@@ -96,7 +96,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     for (int i = 0; i < num_v; i++) {
         if (l_ptr[i+1] - l_ptr[i] >= TILE_SIZE) {
             dense_rows += 1;
-            dense_blocks_num += (d_ptr[i+1] - d_ptr[i]) / TILE_SIZE;
+            dense_blocks_num += (l_ptr[i+1] - l_ptr[i]) / TILE_SIZE;
         }
     }
     dense_bid2order = new int[dense_blocks_num];
