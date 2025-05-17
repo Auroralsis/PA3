@@ -9,7 +9,8 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int offset = tid % (32*32);
     int s_part = offset / 256;
     int col_of_thr = offset % 256;
-    __shared__ float shm[256];
+    __shared__ float shm_val[256];
+    __shared__ int shm_idx[256];
 
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
@@ -21,13 +22,14 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
     if (offset < 256) {
-        shm[offset] = val[begin + part * 256 + offset];
+        shm_val[offset] = val[begin + part * 256 + offset];
+        shm_idx[offset] = idx[begin + part * 256 + offset];
     }
     __syncthreads();
     float result = 0.0f;
     #pragma unroll
-    for (int i = begin + part * 256 + s_part * 64; i < min(begin + part * 256 + (s_part + 1) * 64, end); i++) {
-        result += vin[idx[i] * INFEATURE + col_of_thr] * val[i];
+    for (int i = s_part * 64; i < min((s_part + 1) * 64, end); i++) {
+        result += vin[shm_idx[i] * INFEATURE + col_of_thr] * shm_val[i];
     }
     atomicAdd(&vout[posi * INFEATURE + col_of_thr], result);
 }
