@@ -86,57 +86,62 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int dense_rows = 0;
     int dense_blocks_num = 0;
 
-    int *l_ptr = new int[num_v + 1];
-    int *l_idx = new int[num_e];
-    float *l_val = new float[num_e];
-    checkCudaErrors(cudaMemcpy(l_ptr, d_ptr, (num_v + 1) * sizeof(int), cudaMemcpyDeviceToHost));
-    checkCudaErrors(cudaMemcpy(l_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
-    checkCudaErrors(cudaMemcpy(l_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
+    // 这里需要将device的数据转移到host
+    int *h_ptr = new int[num_v + 1];
+    int *h_idx = new int[num_e];
+    float *h_val = new float[num_e];
+    checkCudaErrors(cudaMemcpy(h_ptr, d_ptr, (num_v + 1) * sizeof(int), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(h_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(h_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
     
     for (int i = 0; i < num_v; i++) {
-        if (l_ptr[i+1] - l_ptr[i] >= TILE_SIZE) {
+        if (h_ptr[i+1] - h_ptr[i] >= TILE_SIZE) {
             dense_rows += 1;
-            dense_blocks_num += (l_ptr[i+1] - l_ptr[i]) / TILE_SIZE;
+            dense_blocks_num += (h_ptr[i+1] - h_ptr[i]) / TILE_SIZE;
         }
     }
-    dense_bid2order = new int[dense_blocks_num];
-    // dense_order2posi = new int[dense_rows];
-    // sum_of_blocks = new int[dense_rows];
+    int *h_dense_bid2order = new int[dense_blocks_num];
+    int *h_dense_order2posi = new int[dense_rows];
+    int *h_sum_of_blocks = new int[dense_rows];
+    int *h_sparse_bid2posi = new int[num_v - dense_rows];
+    int temp = 0;
 
-    // sparse_bid2posi = new int[num_v - dense_rows];
-    // int temp = 0;
+    for (int i = 0, j = 0, k = 0, l = 0; i < num_v; i++) {
+        if (h_ptr[i+1] - h_ptr[i] >= TILE_SIZE) {
+            temp = (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
+            for (int p = 0; p < temp; p++) {
+                h_dense_bid2order[j+p] = l;
+            }
+            j += temp;
+            h_dense_order2posi[l] = i;
+            h_sum_of_blocks[l] = temp;
+            l++;
+        } else {
+            h_sparse_bid2posi[k] = i;
+            k++;
+        }
+    }
+        
+    checkCudaErrors(cudaMemcpy(d_dense_bid2order, h_dense_bid2order, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_dense_order2posi, h_dense_order2posi, dense_rows * sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_sum_of_blocks, h_sum_of_blocks, dense_rows * sizeof(float), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(float), cudaMemcpyHostToDevice));
 
-    // for (int i = 0, j = 0, k = 0, l = 0; i < num_v; i++) {
-    //     if (num_of_row[i] >= TILE_SIZE) {
-    //         temp = (num_of_row[i] - 1) / TILE_SIZE + 1;
-    //         for (int p = 0; p < temp; p++) {
-    //             dense_bid2order[j+p] = l;
-    //         }
-    //         j += temp;
-    //         dense_order2posi[l] = i;
-    //         sum_of_blocks[l] = temp;
-    //         l++;
-    //     } else {
-    //         sparse_bid2posi[k] = i;
-    //         k++;
-    //     }
-    // }
+    // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个8*32的线程块来计算，根据该稠密行的稠密元素的数量决定
+    // 稀疏行类似
+    dense_grid.x = dense_blocks_num;
+    dense_block.x = 8*32;
 
-    // // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个8*32的线程块来计算，根据该稠密行的稠密元素的数量决定
-    // // 稀疏行类似
-    // dense_grid.x = dense_blocks_num;
-    // dense_block.x = 8*32;
-
-    // sparse_grid.x = num_v - dense_rows;
-    // sparse_block.x = 8*32;
+    sparse_grid.x = num_v - dense_rows;
+    sparse_block.x = 8*32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
     printf("run");
-    // spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
-    //     dense_bid2order, dense_order2posi, sum_of_blocks);
-    // spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
-    //     sparse_bid2posi);
-    spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
+    spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+        d_dense_bid2order, d_dense_order2posi, d_sum_of_blocks);
+    spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+        d_sparse_bid2posi);
+    // spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
 }

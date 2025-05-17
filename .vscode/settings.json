@@ -5,6 +5,7 @@
         "istream": "cpp",
         "limits": "cpp",
         "functional": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "new": "cpp"
     }
 }
