@@ -7,10 +7,11 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     int offset = tid % (32*32);
-    int s_part = offset / 256;
-    int col_of_thr = offset % 256;
-    __shared__ float shm_val[256];
-    __shared__ int shm_idx[256];
+    int parts = TILE_SIZE / (32 * 32 / TILE_SIZE);
+    int s_part = offset / TILE_SIZE;
+    int col_of_thr = offset % INFEATURE;
+    __shared__ float shm_val[TILE_SIZE];
+    __shared__ int shm_idx[TILE_SIZE];
 
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
@@ -21,16 +22,16 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    if (offset < 256) {
-        if (begin + part * 256 + offset < end) {
-            shm_val[offset] = val[begin + part * 256 + offset];
-            shm_idx[offset] = idx[begin + part * 256 + offset];
+    if (offset < TILE_SIZE) {
+        if (begin + part * TILE_SIZE + offset < end) {
+            shm_val[offset] = val[begin + part * TILE_SIZE + offset];
+            shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
         }
     }
     __syncthreads();
     float result = 0.0f;
     #pragma unroll
-    for (int i = s_part * 64; i < (s_part + 1) * 64 && begin + part * 256 + i < end; i++) {
+    for (int i = s_part * parts; i < (s_part + 1) * parts && begin + part * TILE_SIZE + i < end; i++) {
         result += vin[shm_idx[i] * INFEATURE + col_of_thr] * shm_val[i];
     }
     atomicAdd(&vout[posi * INFEATURE + col_of_thr], result);
