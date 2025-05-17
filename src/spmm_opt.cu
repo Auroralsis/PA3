@@ -20,7 +20,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int offset = tid % 256;
 
     // 计算该线程块实际对应的需要计算的位置
-    int posi = dense_bid2order[bid];
+    int posi = dense_order2posi[bid];
     // int posi = dense_order2posi[order];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
