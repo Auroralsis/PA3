@@ -3,9 +3,7 @@
 const int WARP_SIZE = 32;
 const int TILE_SIZE = 256;
 
-__global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
-    int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
-    
+__global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     int offset = tid % INFEATURE;
@@ -15,17 +13,24 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int posi = dense_order2posi[order];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
-
+    
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
-    int length = (part + 1) * TILE_SIZE > (end - begin) ? (end - begin) % TILE_SIZE : TILE_SIZE;
 
+    if (part != 0) return;
     float result = 0.0f;
-    #pragma unroll
-    for (int i = begin + part * TILE_SIZE; i < length + begin + part * TILE_SIZE; i++) {
+    for (int i = begin; i < end; i++) {
         result += vin[idx[i] * INFEATURE + offset] * val[i];
     }
-    atomicAdd(&vout[posi * INFEATURE + offset], result);
+    vout[posi * INFEATURE + offset] = result;
+    // int length = (part + 1) * TILE_SIZE > (end - begin) ? (end - begin) % TILE_SIZE : TILE_SIZE;
+
+    // float result = 0.0f;
+    // #pragma unroll
+    // for (int i = begin + part * TILE_SIZE; i < length + begin + part * TILE_SIZE; i++) {
+    //     result += vin[idx[i] * INFEATURE + offset] * val[i];
+    // }
+    // atomicAdd(&vout[posi * INFEATURE + offset], result);
 }
 
 __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
