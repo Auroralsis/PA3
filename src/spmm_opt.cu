@@ -22,13 +22,15 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
     if (offset < 256) {
-        shm_val[offset] = val[begin + part * 256 + offset];
-        shm_idx[offset] = idx[begin + part * 256 + offset];
+        if (begin + part * 256 + offset < end) {
+            shm_val[offset] = val[begin + part * 256 + offset];
+            shm_idx[offset] = idx[begin + part * 256 + offset];
+        }
     }
     __syncthreads();
     float result = 0.0f;
     #pragma unroll
-    for (int i = s_part * 64; i < min((s_part + 1) * 64, end); i++) {
+    for (int i = s_part * 64; i < (s_part + 1) * 64 && begin + part * 256 + i < end; i++) {
         result += vin[shm_idx[i] * INFEATURE + col_of_thr] * shm_val[i];
     }
     atomicAdd(&vout[posi * INFEATURE + col_of_thr], result);
