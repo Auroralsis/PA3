@@ -97,7 +97,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     for (int i = 0; i < num_v; i++) {
         if (h_ptr[i+1] - h_ptr[i] >= TILE_SIZE) {
             dense_rows += 1;
-            dense_blocks_num += (h_ptr[i+1] - h_ptr[i]) / TILE_SIZE;
+            dense_blocks_num += (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
         }
     }
     int *h_dense_bid2order = new int[dense_blocks_num];
@@ -124,8 +124,8 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
         
     checkCudaErrors(cudaMemcpy(d_dense_bid2order, h_dense_bid2order, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_dense_order2posi, h_dense_order2posi, dense_rows * sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_sum_of_blocks, h_sum_of_blocks, dense_rows * sizeof(float), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(float), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_sum_of_blocks, h_sum_of_blocks, dense_rows * sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(int), cudaMemcpyHostToDevice));
 
     // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个8*32的线程块来计算，根据该稠密行的稠密元素的数量决定
     // 稀疏行类似
