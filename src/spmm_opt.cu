@@ -20,15 +20,15 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int offset = tid % 256;
 
     // 计算该线程块实际对应的需要计算的位置
-    int order = dense_bid2order[bid];
-    int posi = dense_order2posi[order];
+    int posi = dense_bid2order[bid];
+    // int posi = dense_order2posi[order];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     
-    // 计算该线程块在该行应该计算的part的位置
-    int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
+    // // 计算该线程块在该行应该计算的part的位置
+    // int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    if (part != 0) return;
+    // if (part != 0) return;
     float result = 0.0f;
     #pragma unroll
     for (int i = begin; i < end; i++) {
@@ -148,7 +148,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 
     // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个8*32的线程块来计算，根据该稠密行的稠密元素的数量决定
     // 稀疏行类似
-    dense_grid.x = dense_blocks_num;
+    dense_grid.x = dense_rows;
     dense_block.x = 8*32;
 
     sparse_grid.x = num_v - dense_rows;
