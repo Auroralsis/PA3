@@ -22,7 +22,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
     int posi = dense_order2posi[order];
-    if (posi > num_v) return;
+    if (posi >= num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     
     // 计算该线程块在该行应该计算的part的位置
@@ -52,7 +52,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int offset = tid % 256;
 
     int posi = sparse_bid2posi[bid];
-    if (posi > num_v) return;
+    if (posi >= num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     float result = 0.0f;
 
