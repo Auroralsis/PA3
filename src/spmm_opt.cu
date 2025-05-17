@@ -82,22 +82,22 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     grid.x = num_v * ROW_SIZE;
     block.x = BLOCK_SIZE;
 
-    // // 挑选出稀疏矩阵中的稠密行
-    // num_of_row = new int[num_v];
-    // // 计算稠密行的个数和应该分配的总共的线程块数
-    // int dense_rows = 0;
-    // int dense_blocks_num = 0;
+    // 挑选出稀疏矩阵中的稠密行
+    num_of_row = new int[num_v];
+    // 计算稠密行的个数和应该分配的总共的线程块数
+    int dense_rows = 0;
+    int dense_blocks_num = 0;
     
-    // for (int i = 0; i < num_v; i++) {
-    //     num_of_row[i] = d_ptr[i+1] - d_ptr[i];
-    //     if (num_of_row[i] >= TILE_SIZE) {
-    //         dense_rows += 1;
-    //         dense_blocks_num += num_of_row[i] / TILE_SIZE;
-    //     }
-    // }
-    // dense_bid2order = new int[dense_blocks_num];
-    // dense_order2posi = new int[dense_rows];
-    // sum_of_blocks = new int[dense_rows];
+    for (int i = 0; i < num_v; i++) {
+        num_of_row[i] = d_ptr[i+1] - d_ptr[i];
+        if (num_of_row[i] >= TILE_SIZE) {
+            dense_rows += 1;
+            dense_blocks_num += num_of_row[i] / TILE_SIZE;
+        }
+    }
+    dense_bid2order = new int[dense_blocks_num];
+    dense_order2posi = new int[dense_rows];
+    sum_of_blocks = new int[dense_rows];
 
     // sparse_bid2posi = new int[num_v - dense_rows];
     // int temp = 0;
