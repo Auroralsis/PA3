@@ -19,7 +19,6 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
 
     if (part != 0) return;
     float result = 0.0f;
-    printf("posi:%d\n", posi);
     #pragma unroll
     for (int i = begin; i < end; i++) {
         result += vin[idx[i] * INFEATURE + offset] * val[i];
@@ -45,7 +44,6 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     if (posi >= num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     float result = 0.0f;
-    printf("posi:%d\n", posi);
 
     #pragma unroll
     for (int i = begin; i < end; i++) {
@@ -89,8 +87,8 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     block.x = BLOCK_SIZE;
 
     // 计算稠密行的个数和应该分配的总共的线程块数
-    int dense_rows = 0;
-    int dense_blocks_num = 0;
+    dense_rows = 0;
+    dense_blocks_num = 0;
 
     // 这里需要将device的数据转移到host
     int *h_ptr = new int[num_v + 1];
@@ -148,6 +146,14 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 
 void SpMMOpt::run(float *vin, float *vout) {
     // TODO: your code
+    printf("dense_order2posi\n");
+    for (int i = 0; i < dense_rows; i++) {
+        printf("%d ",d_dense_order2posi[i]);
+    }
+    printf("dense_bid2order\n");
+    for (int i = 0; i < dense_blocks_num; i++) {
+        printf("%d ",d_dense_bid2order[i]);
+    }
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_dense_bid2order, d_dense_order2posi, d_sum_of_blocks);
     spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,

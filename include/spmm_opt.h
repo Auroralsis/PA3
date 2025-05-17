@@ -23,11 +23,10 @@ public:
 private:
     int num_target;
     int *target, *ptr_scheduled;
+    int dense_rows, dense_blocks_num;
 
     // 用于表示顺序对应的实际稀疏矩阵中的posi
-    int *d_dense_order2posi;
-    int *d_dense_bid2order;
-    int *d_sum_of_blocks;
+    int *d_dense_order2posi, *d_dense_bid2order, *d_sum_of_blocks;
     // 稀疏行直接用bid对应实际稀疏矩阵中的posi
     int *d_sparse_bid2posi;
 
