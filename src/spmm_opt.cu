@@ -121,6 +121,10 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
             k++;
         }
     }
+    checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2order, dense_blocks_num * sizeof(int)));
+    checkCudaErrors(cudaMalloc2((void **)&d_dense_order2posi, dense_rows * sizeof(int)));
+    checkCudaErrors(cudaMalloc2((void **)&d_sum_of_blocks, dense_rows * sizeof(int)));
+    checkCudaErrors(cudaMalloc2((void **)&d_sparse_bid2posi, (num_v - dense_rows) * sizeof(int)));
         
     checkCudaErrors(cudaMemcpy(d_dense_bid2order, h_dense_bid2order, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_dense_order2posi, h_dense_order2posi, dense_rows * sizeof(int), cudaMemcpyHostToDevice));
