@@ -5,6 +5,8 @@ const int TILE_SIZE = 256;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
     int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
+    
+    printf("running");
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     int offset = tid % INFEATURE;
