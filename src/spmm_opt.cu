@@ -23,7 +23,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
         shm_val[offset] = val[begin + part * TILE_SIZE + offset];
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
-    __syncthreads();
+    __syncwarp();
     float result;
     #pragma unroll
     for (int j = 0; j < INFEATURE / 32; j++) {
