@@ -52,11 +52,12 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
-    shm_val[offset] = val[begin + offset];
-    shm_idx[offset] = idx[begin + offset];
+    if (offset < end - begin) {
+        shm_val[offset] = val[begin + offset];
+        shm_idx[offset] = idx[begin + offset];
+    }
     __syncthreads();
 
-    #pragma unroll
     for (int j = 0; j < INFEATURE / 128; j++) {
         result = 0.0f;
         #pragma unroll
