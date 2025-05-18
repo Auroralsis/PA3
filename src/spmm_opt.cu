@@ -1,7 +1,8 @@
 #include "spmm_opt.h"
 
-const int WARP_SIZE = 32;
-const int TILE_SIZE = 32;
+const int WARP_SIZE = 64;
+const int TILE_SIZE = 64;
+const int BLOCK_SIZE = TILE_SIZE;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -123,13 +124,11 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(d_sum_of_blocks, h_sum_of_blocks, dense_rows * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(int), cudaMemcpyHostToDevice));
 
-    // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个32*32的线程块来计算，根据该稠密行的稠密元素的数量决定
-    // 稀疏行类似
     dense_grid.x = dense_blocks_num;
-    dense_block.x = 32;
+    dense_block.x = BLOCK_SIZE;
 
     sparse_grid.x = sparse_blocks_num;
-    sparse_block.x = 32;
+    sparse_block.x = BLOCK_SIZE;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
