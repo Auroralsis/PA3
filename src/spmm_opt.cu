@@ -6,6 +6,7 @@ const int TILE_SIZE = 32;
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
+    float result;
     int offset = tid % 32;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
@@ -24,7 +25,6 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
     __syncwarp();
-    float result;
     #pragma unroll
     for (int j = 0; j < INFEATURE / 32; j++) {
         result = 0.0f;
@@ -41,11 +41,11 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     int offset = tid % 32;
+    float result;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
-    float result;
 
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
@@ -65,33 +65,6 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
         }
         vout[posi * INFEATURE + offset + j * 32] = result;
     }
-}
-
-__global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *vin, float *vout, int num_v, int INFEATURE) {
-    // ptr, idx, val分别是稀疏矩阵的CSR格式对应的数组
-    // vin, vout分别是与稀疏矩阵相乘的稠密矩阵和最终结果的稠密矩阵
-    // num_v是稀疏矩阵的行数，即M*M中的M
-    // INFEATURE是输入的稠密矩阵的列数，M*K中的K
-
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    // 对于INFEARTURE = 32 或 256，分别确定一行计算需要使用的线程块个数
-    int lines_num = INFEATURE / WARP_SIZE;
-
-    // 根据线程id求出该线程负责的具体稀疏矩阵中的一行以及其需要计算的列
-    int row_of_thr = tid / (WARP_SIZE * lines_num);
-    int line_of_thr = tid % (WARP_SIZE * lines_num);
-
-    if (row_of_thr >= num_v) return;
-    int begin = ptr[row_of_thr], end = ptr[row_of_thr + 1];
-
-    float result = 0.0f;
-
-    #pragma unroll
-    for (int i = begin; i < end; i++) {
-        result += vin[idx[i] * INFEATURE + line_of_thr] * val[i];
-    }
-    vout[row_of_thr * INFEATURE + line_of_thr] = result;
 }
 
 void SpMMOpt::preprocess(float *vin, float *vout) {
