@@ -2,7 +2,7 @@
 
 const int WARP_SIZE = 32;
 const int TILE_SIZE = 256;
-const int dense_block_size_256 = 16 * 32;
+const int dense_block_size_256 = 32 * 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
