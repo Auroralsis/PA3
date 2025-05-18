@@ -54,7 +54,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
         shm_val[offset] = val[begin + offset];
         shm_idx[offset] = idx[begin + offset];
     }
-    __syncthreads();
+    __syncwarp();
 
     #pragma unroll
     for (int j = 0; j < INFEATURE / 32; j++) {
@@ -132,8 +132,10 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
             h_sum_of_blocks[l] = l == 0 ? temp : temp + h_sum_of_blocks[l-1];
             l++;
         } else {
-            h_sparse_bid2posi[k] = i;
-            k++;
+            if (h_ptr[i+1] - h_ptr[i] != 0) {
+                h_sparse_bid2posi[k] = i;
+                k++;
+            }
         }
     }
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2order, dense_blocks_num * sizeof(int)));
