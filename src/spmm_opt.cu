@@ -126,6 +126,9 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
+    printf("dense rows:%d", dense_rows);
+    printf("dense blocks num:%d", dense_blocks_num);
+    printf("sparse blocks num:%d", sparse_blocks_num);
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_dense_bid2order, d_dense_order2posi, d_sum_of_blocks);
     spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
