@@ -1,6 +1,5 @@
 #include "spmm_opt.h"
 
-const int WARP_SIZE = 64;
 const int TILE_SIZE = 64;
 const int BLOCK_SIZE = TILE_SIZE;
 
@@ -41,7 +40,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 32;
+    int offset = tid % 64;
     float result;
 
     int posi = sparse_bid2posi[bid];
