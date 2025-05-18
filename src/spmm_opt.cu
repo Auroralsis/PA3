@@ -1,13 +1,13 @@
 #include "spmm_opt.h"
 
 const int TILE_SIZE = 32;
-const int BLOCK_SIZE = TILE_SIZE;
+const int DENSE_BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     float result;
-    int offset = tid % 64;
+    int offset = tid % DENSE_BLOCK_SIZE;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
@@ -26,13 +26,13 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     }
     __syncthreads();
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 64; j++) {
+    for (int j = 0; j < INFEATURE / DENSE_BLOCK_SIZE; j++) {
         result = 0.0f;
         #pragma unroll
-        for (int i = 0; i < 32 && i + begin + part * TILE_SIZE < end; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
+        for (int i = 0; i < TILE_SIZE && i + begin + part * TILE_SIZE < end; i++) {
+            result += vin[shm_idx[i] * INFEATURE + offset + j * DENSE_BLOCK_SIZE] * shm_val[i];
         }
-        atomicAdd(&vout[posi * INFEATURE + offset + j * 64], result);
+        atomicAdd(&vout[posi * INFEATURE + offset + j * DENSE_BLOCK_SIZE], result);
     }
 }
 
@@ -119,7 +119,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(int), cudaMemcpyHostToDevice));
 
     dense_grid.x = dense_blocks_num;
-    dense_block.x = 64;
+    dense_block.x = DENSE_BLOCK_SIZE;
 
     sparse_grid.x = sparse_blocks_num;
     sparse_block.x = 32;
