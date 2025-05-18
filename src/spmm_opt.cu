@@ -1,7 +1,7 @@
 #include "spmm_opt.h"
 
 const int WARP_SIZE = 32;
-const int TILE_SIZE = 64;
+const int TILE_SIZE = 128;
 const int dense_block_size_256 = 32 * 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
@@ -42,7 +42,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 64;
+    int offset = tid % 128;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
@@ -59,12 +59,13 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     __syncthreads();
 
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 64; j++) {
+    for (int j = 0; j < INFEATURE / 128; j++) {
         result = 0.0f;
+        #pragma unroll
         for (int i = 0; i < end - begin; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 128] * shm_val[i];
         }
-        vout[posi * INFEATURE + offset + j * 64] = result;
+        vout[posi * INFEATURE + offset + j * 128] = result;
     }
 }
 
@@ -153,7 +154,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     dense_block.x = dense_block_size_256;
 
     sparse_grid.x = num_v - dense_rows;
-    sparse_block.x = 2*32;
+    sparse_block.x = 4*32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
