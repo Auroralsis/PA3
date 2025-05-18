@@ -47,7 +47,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
-    float result = 0.0f;
+    float result;
 
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
@@ -59,10 +59,13 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     __syncthreads();
 
     #pragma unroll
-    for (int i = 0; i < end - begin; i++) {
-        result += vin[shm_idx[i] * INFEATURE + offset] * shm_val[i];
+    for (int j = 0; j < INFEATURE / 128; j++) {
+        result = 0.0f;
+        for (int i = 0; i < end - begin; i++) {
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 128] * shm_val[i];
+        }
+        vout[posi * INFEATURE + offset + j * 128] = result;
     }
-    vout[posi * INFEATURE + offset] = result;
 }
 
 __global__ void spmm_kernel_placeholder(int *ptr, int *idx, float *val, float *vin, float *vout, int num_v, int INFEATURE) {
