@@ -70,11 +70,6 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
 
 void SpMMOpt::preprocess(float *vin, float *vout) {
     // TODO: your code
-    int ROW_SIZE = feat_in / 32;
-    int BLOCK_SIZE = WARP_SIZE;
-    grid.x = num_v * ROW_SIZE;
-    block.x = BLOCK_SIZE;
-
     // 计算稠密行的个数和应该分配的总共的线程块数
     dense_rows = 0;
     dense_blocks_num = 0;
