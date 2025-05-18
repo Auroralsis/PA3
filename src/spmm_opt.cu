@@ -7,7 +7,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     float result;
-    int offset = tid % 32;
+    int offset = tid % 64;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
@@ -26,13 +26,13 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     }
     __syncwarp();
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 32; j++) {
+    for (int j = 0; j < INFEATURE / 64; j++) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < 32 && i + begin + part * TILE_SIZE < end; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
         }
-        atomicAdd(&vout[posi * INFEATURE + offset + j * 32], result);
+        atomicAdd(&vout[posi * INFEATURE + offset + j * 64], result);
     }
 }
 
@@ -119,7 +119,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(int), cudaMemcpyHostToDevice));
 
     dense_grid.x = dense_blocks_num;
-    dense_block.x = BLOCK_SIZE;
+    dense_block.x = 64;
 
     sparse_grid.x = sparse_blocks_num;
     sparse_block.x = BLOCK_SIZE;
