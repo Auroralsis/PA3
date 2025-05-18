@@ -1,13 +1,13 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE = 64;
+const int TILE_SIZE = 32;
 const int BLOCK_SIZE = TILE_SIZE;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     float result;
-    int offset = tid % BLOCK_SIZE;
+    int offset = tid % 32;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
@@ -26,13 +26,13 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     }
     __syncwarp();
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 64; j++) {
+    for (int j = 0; j < INFEATURE / 32; j++) {
         result = 0.0f;
         #pragma unroll
-        for (int i = 0; i < 64 && i + begin + part * TILE_SIZE < end; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
+        for (int i = 0; i < 32 && i + begin + part * TILE_SIZE < end; i++) {
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
         }
-        atomicAdd(&vout[posi * INFEATURE + offset + j * 64], result);
+        atomicAdd(&vout[posi * INFEATURE + offset + j * 32], result);
     }
 }
 
@@ -40,7 +40,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 64;
+    int offset = tid % 32;
     float result;
 
     int posi = sparse_bid2posi[bid];
@@ -57,13 +57,13 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     __syncwarp();
 
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 64; j++) {
+    for (int j = 0; j < INFEATURE / 32; j++) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < end - begin; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
         }
-        vout[posi * INFEATURE + offset + j * 64] = result;
+        vout[posi * INFEATURE + offset + j * 32] = result;
     }
 }
 
