@@ -1,6 +1,6 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE = 32;
+const int TILE_SIZE = 64;
 const int DENSE_BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
@@ -126,9 +126,6 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
-    printf("dense rows:%d", dense_rows);
-    printf("dense blocks num:%d", dense_blocks_num);
-    printf("sparse blocks num:%d", sparse_blocks_num);
     spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_dense_bid2order, d_dense_order2posi, d_sum_of_blocks);
     spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
