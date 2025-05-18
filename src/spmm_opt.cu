@@ -1,16 +1,12 @@
 #include "spmm_opt.h"
 
 const int WARP_SIZE = 32;
-const int TILE_SIZE = 128;
-const int dense_block_size_256 = 32 * 32;
+const int TILE_SIZE = 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % dense_block_size_256;
-    int parts = TILE_SIZE / (dense_block_size_256 / INFEATURE);
-    int s_part = offset / INFEATURE;
-    int col_of_thr = offset % INFEATURE;
+    int offset = tid % 32;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
@@ -23,26 +19,27 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    if (offset < TILE_SIZE) {
-        if (begin + part * TILE_SIZE + offset < end) {
-            shm_val[offset] = val[begin + part * TILE_SIZE + offset];
-            shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
-        }
+    if (begin + part * TILE_SIZE + offset < end) {
+        shm_val[offset] = val[begin + part * TILE_SIZE + offset];
+        shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
     __syncthreads();
-    float result = 0.0f;
+    float result;
     #pragma unroll
-    for (int i = s_part * parts; i < (s_part + 1) * parts && begin + part * TILE_SIZE + i < end; i++) {
-        result += vin[shm_idx[i] * INFEATURE + col_of_thr] * shm_val[i];
+    for (int j = 0; j < INFEATURE / 32; j++) {
+        result = 0.0f;
+        for (int i = 0; i < 32 && i + begin + part * TILE_SIZE < end; i++) {
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
+        }
+        atomicAdd(&vout[posi * INFEATURE + offset + j * 32], result);
     }
-    atomicAdd(&vout[posi * INFEATURE + col_of_thr], result);
 }
 
 __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 128;
+    int offset = tid % 32;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
@@ -58,13 +55,13 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     }
     __syncthreads();
 
-    for (int j = 0; j < INFEATURE / 128; j++) {
+    for (int j = 0; j < INFEATURE / 32; j++) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < end - begin; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 128] * shm_val[i];
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
         }
-        vout[posi * INFEATURE + offset + j * 128] = result;
+        vout[posi * INFEATURE + offset + j * 32] = result;
     }
 }
 
@@ -111,7 +108,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(h_ptr, d_ptr, (num_v + 1) * sizeof(int), cudaMemcpyDeviceToHost));
     
     for (int i = 0; i < num_v; i++) {
-        if (h_ptr[i+1] - h_ptr[i] >= TILE_SIZE) {
+        if (h_ptr[i+1] - h_ptr[i] > TILE_SIZE) {
             dense_rows += 1;
             dense_blocks_num += (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
         }
@@ -123,7 +120,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int temp = 0;
 
     for (int i = 0, j = 0, k = 0, l = 0; i < num_v; i++) {
-        if (h_ptr[i+1] - h_ptr[i] >= TILE_SIZE) {
+        if (h_ptr[i+1] - h_ptr[i] > TILE_SIZE) {
             temp = (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
             for (int p = 0; p < temp; p++) {
                 h_dense_bid2order[j+p] = l;
@@ -150,10 +147,10 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个32*32的线程块来计算，根据该稠密行的稠密元素的数量决定
     // 稀疏行类似
     dense_grid.x = dense_blocks_num;
-    dense_block.x = dense_block_size_256;
+    dense_block.x = 32;
 
     sparse_grid.x = num_v - dense_rows;
-    sparse_block.x = 4*32;
+    sparse_block.x = 32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
