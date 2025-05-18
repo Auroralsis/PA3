@@ -20,7 +20,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    if (begin + part * TILE_SIZE + offset < end) {
+    if (begin + part * TILE_SIZE + offset < end && offset < 32) {
         shm_val[offset] = val[begin + part * TILE_SIZE + offset];
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
@@ -122,7 +122,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     dense_block.x = 64;
 
     sparse_grid.x = sparse_blocks_num;
-    sparse_block.x = BLOCK_SIZE;
+    sparse_block.x = 32;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
