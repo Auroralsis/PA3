@@ -1,7 +1,7 @@
 #include "spmm_opt.h"
 
 const int TILE_SIZE = 64;
-const int DENSE_BLOCK_SIZE = 32;
+const int DENSE_BLOCK_SIZE = 64;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
