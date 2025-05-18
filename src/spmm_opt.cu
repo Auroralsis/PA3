@@ -104,6 +104,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 计算稠密行的个数和应该分配的总共的线程块数
     dense_rows = 0;
     dense_blocks_num = 0;
+    sparse_blocks_num = 0;
 
     // 这里需要将device的数据转移到host
     int *h_ptr = new int[num_v + 1];
@@ -134,6 +135,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
         } else {
             if (h_ptr[i+1] - h_ptr[i] != 0) {
                 h_sparse_bid2posi[k] = i;
+                sparse_blocks_num++;
                 k++;
             }
         }
@@ -153,7 +155,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     dense_grid.x = dense_blocks_num;
     dense_block.x = 32;
 
-    sparse_grid.x = num_v - dense_rows;
+    sparse_grid.x = sparse_blocks_num;
     sparse_block.x = 32;
 }
 

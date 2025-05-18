@@ -23,7 +23,7 @@ public:
 private:
     int num_target;
     int *target, *ptr_scheduled;
-    int dense_rows, dense_blocks_num;
+    int dense_rows, dense_blocks_num, sparse_blocks_num;
 
     // 用于表示顺序对应的实际稀疏矩阵中的posi
     int *d_dense_order2posi, *d_dense_bid2order, *d_sum_of_blocks;
