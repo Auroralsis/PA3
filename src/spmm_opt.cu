@@ -2,12 +2,13 @@
 
 const int WARP_SIZE = 32;
 const int TILE_SIZE = 256;
+const int dense_block_size_256 = 16 * 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % (32*32);
-    int parts = TILE_SIZE / (32 * 32 / INFEATURE);
+    int offset = tid % dense_block_size_256;
+    int parts = TILE_SIZE / (dense_block_size_256 / INFEATURE);
     int s_part = offset / INFEATURE;
     int col_of_thr = offset % INFEATURE;
     __shared__ float shm_val[TILE_SIZE];
@@ -146,7 +147,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 对于稠密行的计算使用spmm_kernel_dense，每一稠密行，使用多个32*32的线程块来计算，根据该稠密行的稠密元素的数量决定
     // 稀疏行类似
     dense_grid.x = dense_blocks_num;
-    dense_block.x = 32*32;
+    dense_block.x = dense_block_size_256;
 
     sparse_grid.x = num_v - dense_rows;
     sparse_block.x = 8*32;
