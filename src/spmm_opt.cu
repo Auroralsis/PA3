@@ -20,11 +20,11 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     // 计算该线程块在该行应该计算的part的位置
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
 
-    if (begin + part * TILE_SIZE + offset < end && offset < 32) {
+    if (begin + part * TILE_SIZE + offset < end && offset < TILE_SIZE) {
         shm_val[offset] = val[begin + part * TILE_SIZE + offset];
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
-    __syncwarp();
+    __syncthreads();
     #pragma unroll
     for (int j = 0; j < INFEATURE / 64; j++) {
         result = 0.0f;
