@@ -27,13 +27,13 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     }
     __syncwarp();
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 32; j++) {
+    for (int j = 0; j < INFEATURE / 64; j++) {
         result = 0.0f;
         #pragma unroll
-        for (int i = 0; i < 32 && i + begin + part * TILE_SIZE < end; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
+        for (int i = 0; i < 64 && i + begin + part * TILE_SIZE < end; i++) {
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
         }
-        atomicAdd(&vout[posi * INFEATURE + offset + j * 32], result);
+        atomicAdd(&vout[posi * INFEATURE + offset + j * 64], result);
     }
 }
 
@@ -58,13 +58,13 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     __syncwarp();
 
     #pragma unroll
-    for (int j = 0; j < INFEATURE / 32; j++) {
+    for (int j = 0; j < INFEATURE / 64; j++) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < end - begin; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j * 32] * shm_val[i];
+            result += vin[shm_idx[i] * INFEATURE + offset + j * 64] * shm_val[i];
         }
-        vout[posi * INFEATURE + offset + j * 32] = result;
+        vout[posi * INFEATURE + offset + j * 64] = result;
     }
 }
 
