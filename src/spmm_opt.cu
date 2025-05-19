@@ -1,6 +1,6 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE_32 = 96;
+const int TILE_SIZE_32 = 64;
 const int TILE_SIZE_256 = 32;
 const int BLOCK_SIZE = 32;
 
@@ -10,9 +10,13 @@ __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, fl
     float result;
     int offset = tid % BLOCK_SIZE;
     int TILE_SIZE = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
-    __shared__ float shm_val[TILE_SIZE_32];
-    __shared__ int shm_idx[TILE_SIZE_32];
-
+    if (INFEATURE == 32) {
+        __shared__ float shm_val[TILE_SIZE_32];
+        __shared__ int shm_idx[TILE_SIZE_32];
+    } else {
+        __shared__ float shm_val[TILE_SIZE_256];
+        __shared__ int shm_idx[TILE_SIZE_256];
+    }
     // 计算该线程块实际对应的需要计算的位置
     int posi = dense_bid2posi[bid];
     int part = dense_bid2part[bid];
