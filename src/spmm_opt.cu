@@ -1,7 +1,7 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE = 64;
-const int DENSE_BLOCK_SIZE = 64;
+const int TILE_SIZE = 32;
+const int DENSE_BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2order, int *dense_order2posi, int *sum_of_blocks) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -86,19 +86,16 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     }
     int *h_dense_bid2order = new int[dense_blocks_num];
     int *h_dense_order2posi = new int[dense_rows];
+    int *rows_blocks_num = new int[dense_rows];
     int *h_sum_of_blocks = new int[dense_rows];
     int *h_sparse_bid2posi = new int[num_v - dense_rows];
     int temp = 0;
 
-    for (int i = 0, j = 0, k = 0, l = 0; i < num_v; i++) {
+    for (int i = 0, k = 0, l = 0; i < num_v; i++) {
         if (h_ptr[i+1] - h_ptr[i] > TILE_SIZE) {
             temp = (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
-            for (int p = 0; p < temp; p++) {
-                h_dense_bid2order[j+p] = l;
-            }
-            j += temp;
             h_dense_order2posi[l] = i;
-            h_sum_of_blocks[l] = l == 0 ? temp : temp + h_sum_of_blocks[l-1];
+            rows_blocks_num[l] = temp;
             l++;
         } else {
             if (h_ptr[i+1] - h_ptr[i] != 0) {
@@ -108,6 +105,29 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
             }
         }
     }
+
+    std::pair<int, int>* pairs = new std::pair<int, int>[dense_rows];
+    for (int i = 0; i < dense_rows; ++i) {
+        pairs[i] = std::make_pair(rows_blocks_num[i], h_dense_order2posi[i]);
+    }
+    std::sort(pairs, pairs + dense_rows, [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+        return a.first > b.first;
+    });
+    for (int i = 0; i < dense_rows; i++) {
+        rows_blocks_num[i] = pairs[i].first;
+        h_dense_order2posi[i] = pairs[i].second;
+    }
+    delete[] pairs;
+
+    for (int i = 0, j = 0; i < dense_rows; i++) {
+        temp = rows_blocks_num[i];
+        h_sum_of_blocks[i] = i == 0 ? temp : temp + h_sum_of_blocks[i-1];
+        for (int p = 0; p < temp; p++) {
+            h_dense_bid2order[j+p] = i;
+        }
+        j += temp;
+    }
+
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2order, dense_blocks_num * sizeof(int)));
     checkCudaErrors(cudaMalloc2((void **)&d_dense_order2posi, dense_rows * sizeof(int)));
     checkCudaErrors(cudaMalloc2((void **)&d_sum_of_blocks, dense_rows * sizeof(int)));
@@ -123,6 +143,13 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
 
     sparse_grid.x = sparse_blocks_num;
     sparse_block.x = 32;
+
+    delete[] h_dense_bid2order;
+    delete[] h_dense_order2posi;
+    delete[] rows_blocks_num;
+    delete[] h_sum_of_blocks;
+    delete[] h_sparse_bid2posi;
+    delete[] h_ptr;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
