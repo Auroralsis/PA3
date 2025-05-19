@@ -1,6 +1,7 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE = 64;
+const int TILE_SIZE_32 = 96;
+const int TILE_SIZE_256 = 32;
 const int BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
@@ -8,6 +9,7 @@ __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, fl
     int bid = blockIdx.x;
     float result;
     int offset = tid % BLOCK_SIZE;
+    int TILE_SIZE = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
@@ -41,6 +43,7 @@ __global__ void spmm_kernel_sparse(int *ptr, int *idx, float *val, float *vin, f
     int bid = blockIdx.x;
     int offset = tid % BLOCK_SIZE;
     float result;
+    int TILE_SIZE = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
@@ -67,6 +70,7 @@ __global__ void spmm_kernel_sparse(int *ptr, int *idx, float *val, float *vin, f
 
 void SpMMOpt::preprocess(float *vin, float *vout) {
     // TODO: your code
+    int TILE_SIZE = feat_in == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
     // 计算稠密行的个数和应该分配的总共的线程块数
     dense_rows = 0;
     dense_blocks_num = 0;
