@@ -1,7 +1,7 @@
 #include "spmm_opt.h"
-#define TILE_SIZE_32 64
-#define TILE_SIZE_256 32
 
+const int TILE_SIZE_32 = 96;
+const int TILE_SIZE_256 = 32;
 const int BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
@@ -9,14 +9,9 @@ __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, fl
     int bid = blockIdx.x;
     float result;
     int offset = tid % BLOCK_SIZE;
-    int TILE_SIZE;
-    if (INFEATURE == 32) {
-        TILE_SIZE = TILE_SIZE_32;
-    } else {
-        TILE_SIZE = TILE_SIZE_256;
-    }
-    __shared__ float shm_val[TILE_SIZE];
-    __shared__ int shm_idx[TILE_SIZE];
+    int TILE_SIZE = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
+    __shared__ float shm_val[TILE_SIZE_32];
+    __shared__ int shm_idx[TILE_SIZE_32];
 
     // 计算该线程块实际对应的需要计算的位置
     int posi = dense_bid2posi[bid];
@@ -54,8 +49,8 @@ __global__ void spmm_kernel_sparse(int *ptr, int *idx, float *val, float *vin, f
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
 
-    __shared__ float shm_val[TILE_SIZE];
-    __shared__ int shm_idx[TILE_SIZE];
+    __shared__ float shm_val[TILE_SIZE_32];
+    __shared__ int shm_idx[TILE_SIZE_32];
 
     for (int i = 0; i < TILE_SIZE / BLOCK_SIZE && offset + i * BLOCK_SIZE < end - begin; i++) {
         shm_val[offset + i * BLOCK_SIZE] = val[begin + offset + i * BLOCK_SIZE];
