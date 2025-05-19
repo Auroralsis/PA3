@@ -26,11 +26,20 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
     __syncthreads();
+
+    float reg_val[TILE_SIZE];
+    int reg_idx[TILE_SIZE];
+    #pragma unroll
+    for (int i = 0; i < length; i++) {
+        reg_val[i] = shm_val[i];
+        reg_idx[i] = shm_idx[i];
+    }
+
     for (int j = 0; j < INFEATURE; j += DENSE_BLOCK_SIZE) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < length; i++) {
-            result += vin[shm_idx[i] * INFEATURE + offset + j] * shm_val[i];
+            result += vin[reg_idx[i] * INFEATURE + offset + j] * reg_val[i];
         }
         atomicAdd(&vout[posi * INFEATURE + offset + j], result);
     }
