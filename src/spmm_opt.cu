@@ -4,7 +4,7 @@ constexpr int TILE_SIZE_32 = 64;
 constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
-void mergeRowEntries(int* h_ptr, int* h_idx, int* h_val, int num_v) {
+void mergeRowEntries(int* h_ptr, int* h_idx, float* h_val, int num_v) {
     std::vector<int> new_ptr = {0};
     std::vector<int> new_idx;
     std::vector<int> new_val;
@@ -165,11 +165,11 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 这里需要将device的数据转移到host
     int *h_ptr = new int[num_v + 1];
     int *h_idx = new int[num_e];
-    int *h_val = new int[num_e];
+    float *h_val = new float[num_e];
 
     checkCudaErrors(cudaMemcpy(h_ptr, d_ptr, (num_v + 1) * sizeof(int), cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaMemcpy(h_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
-    checkCudaErrors(cudaMemcpy(h_val, d_val, num_e * sizeof(int), cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy(h_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
 
     mergeRowEntries(h_ptr, h_idx, h_val, num_v);
 
@@ -230,7 +230,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, sparse_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_ptr, h_ptr, (num_v + 1) * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_idx, h_idx, num_e * sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_val, h_val, num_e * sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_val, h_val, num_e * sizeof(float), cudaMemcpyHostToDevice));
 
     dense_grid.x = dense_blocks_num;
     dense_block.x = BLOCK_SIZE;
