@@ -87,6 +87,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int *h_dense_bid2posi = new int[dense_blocks_num];
     int *h_dense_bid2part = new int[dense_blocks_num];
     int *h_dense_min_idx = new int[dense_blocks_num];
+    int *h_dense_max_idx = new int[dense_blocks_num];
 
     int *h_sparse_bid2posi = new int[num_v - dense_rows];
     int temp = 0;
@@ -97,7 +98,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
             for (int p = 0; p < temp; p++) {
                 h_dense_bid2posi[j+p] = i;
                 h_dense_bid2part[j+p] = p;
-                h_dense_min_idx[j+p] = h_idx[h_ptr[i] + p * TILE_SIZE];
+                h_dense_min_idx[j+p] = h_idx[h_ptr[i] + p * TILE_SIZE] + h_idx[min(h_ptr[i] + (p+1) * TILE_SIZE, h_ptr[i+1])];
             }
             j += temp;
         } else {
