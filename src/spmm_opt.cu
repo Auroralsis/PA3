@@ -25,7 +25,6 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
     __syncthreads();
-    #pragma unroll
     for (int j = 0; j < INFEATURE / DENSE_BLOCK_SIZE; j++) {
         result = 0.0f;
         #pragma unroll
@@ -56,7 +55,6 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     }
     __syncwarp();
 
-    #pragma unroll
     for (int j = 0; j < INFEATURE / 32; j++) {
         result = 0.0f;
         #pragma unroll
