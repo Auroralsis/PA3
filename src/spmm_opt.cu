@@ -1,9 +1,9 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE = 128;
+const int TILE_SIZE = 64;
 const int BLOCK_SIZE = 32;
 
-__global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
+__global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     float result;
@@ -35,11 +35,11 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     }
 }
 
-__global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
+__global__ void spmm_kernel_sparse(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE,
     int *sparse_bid2posi) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
-    int offset = tid % 32;
+    int offset = tid % BLOCK_SIZE;
     float result;
 
     int posi = sparse_bid2posi[bid];
@@ -55,7 +55,7 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     }
     __syncthreads();
 
-    for (int j = 0; j < INFEATURE; j += 32) {
+    for (int j = 0; j < INFEATURE; j += BLOCK_SIZE) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < end - begin; i++) {
@@ -70,6 +70,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     // 计算稠密行的个数和应该分配的总共的线程块数
     dense_rows = 0;
     dense_blocks_num = 0;
+    // 这里的spare_blocks_num除去了所有稠密行和空行，因此不能直接减
     sparse_blocks_num = 0;
 
     // 这里需要将device的数据转移到host
@@ -88,7 +89,8 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int *h_dense_bid2part = new int[dense_blocks_num];
     int *h_dense_min_idx = new int[dense_blocks_num];
 
-    int *h_sparse_bid2posi = new int[num_v - dense_rows];
+    int *h_sparse_bid2posi = new int[sparse_blocks_num];
+    int *h_sparse_min_idx = new int[sparse_blocks_num];
     int temp = 0;
 
     for (int i = 0, j = 0, k = 0; i < num_v; i++) {
@@ -103,6 +105,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
         } else {
             if (h_ptr[i+1] - h_ptr[i] != 0) {
                 h_sparse_bid2posi[k] = i;
+                h_sparse_min_idx[k] = h_idx[h_ptr[i]];
                 sparse_blocks_num++;
                 k++;
             }
@@ -124,33 +127,47 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
         h_dense_bid2part[i] = triples[i].second.second;
     }
 
-    delete[] triples;
+    using Pair = std::pair<int, int>;
+    Pair* pairs = new Pair[sparse_blocks_num];
+    for (int i = 0; i < sparse_blocks_num; ++i) {
+        pairs[i] = std::make_pair(h_sparse_min_idx[i], h_sparse_bid2posi[i]);
+    }
+    std::sort(pairs, pairs + sparse_blocks_num, [](const Pair& a, const Pair& b) {
+        return a.first < b.first;
+    });
+    for (int i = 0; i < sparse_blocks_num; ++i) {
+        h_sparse_min_idx[i] = pairs[i].first;
+        h_sparse_bid2posi[i] = pairs[i].second;
+    }
 
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2posi, dense_blocks_num * sizeof(int)));
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2part, dense_blocks_num * sizeof(int)));
     checkCudaErrors(cudaMalloc2((void **)&d_dense_min_idx, dense_blocks_num * sizeof(int)));
-    checkCudaErrors(cudaMalloc2((void **)&d_sparse_bid2posi, (num_v - dense_rows) * sizeof(int)));
+    checkCudaErrors(cudaMalloc2((void **)&d_sparse_bid2posi, sparse_blocks_num * sizeof(int)));
         
     checkCudaErrors(cudaMemcpy(d_dense_bid2posi, h_dense_bid2posi, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_dense_bid2part, h_dense_bid2part, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_dense_min_idx, h_dense_min_idx, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(int), cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, sparse_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
 
     dense_grid.x = dense_blocks_num;
     dense_block.x = BLOCK_SIZE;
 
     sparse_grid.x = sparse_blocks_num;
-    sparse_block.x = 32;
+    sparse_block.x = BLOCK_SIZE;
 
     delete[] h_sparse_bid2posi;
     delete[] h_ptr;
     delete[] h_idx;
+    delete[] triples;
+    delete[] pairs;
+
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
-    spmm_kernel_dense_256<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+    spmm_kernel_dense<<<dense_grid, dense_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_dense_bid2posi, d_dense_bid2part);
-    spmm_kernel_sparse_256<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
+    spmm_kernel_sparse<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_sparse_bid2posi);
     // spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
 }
