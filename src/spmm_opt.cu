@@ -1,7 +1,7 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE_32 = 96;
-const int TILE_SIZE_256 = 32;
+int TILE_SIZE_32 = 96;
+int TILE_SIZE_256 = 32;
 const int BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
@@ -9,9 +9,9 @@ __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, fl
     int bid = blockIdx.x;
     float result;
     int offset = tid % BLOCK_SIZE;
-    int tile_size = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
-    __shared__ float shm_val[tile_size];
-    __shared__ int shm_idx[tile_size];
+    int TILE_SIZE = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
+    __shared__ float shm_val[TILE_SIZE];
+    __shared__ int shm_idx[TILE_SIZE];
 
     // 计算该线程块实际对应的需要计算的位置
     int posi = dense_bid2posi[bid];
@@ -19,11 +19,11 @@ __global__ void spmm_kernel_dense(int *ptr, int *idx, float *val, float *vin, fl
     if (posi >= num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
     
-    int length = min(tile_size, end - begin - part * tile_size);
+    int length = min(TILE_SIZE, end - begin - part * TILE_SIZE);
 
-    for (int i = 0; i < tile_size / BLOCK_SIZE && offset + i * BLOCK_SIZE < length; i++) {
-        shm_val[offset + i * BLOCK_SIZE] = val[begin + part * tile_size + offset + i * BLOCK_SIZE];
-        shm_idx[offset + i * BLOCK_SIZE] = idx[begin + part * tile_size + offset + i * BLOCK_SIZE];
+    for (int i = 0; i < TILE_SIZE / BLOCK_SIZE && offset + i * BLOCK_SIZE < length; i++) {
+        shm_val[offset + i * BLOCK_SIZE] = val[begin + part * TILE_SIZE + offset + i * BLOCK_SIZE];
+        shm_idx[offset + i * BLOCK_SIZE] = idx[begin + part * TILE_SIZE + offset + i * BLOCK_SIZE];
     }
     __syncthreads();
 
@@ -43,16 +43,16 @@ __global__ void spmm_kernel_sparse(int *ptr, int *idx, float *val, float *vin, f
     int bid = blockIdx.x;
     int offset = tid % BLOCK_SIZE;
     float result;
-    int tile_size = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
+    int TILE_SIZE = INFEATURE == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
 
     int posi = sparse_bid2posi[bid];
     if (posi > num_v) return;
     int begin = ptr[posi], end = ptr[posi + 1];
 
-    __shared__ float shm_val[tile_size];
-    __shared__ int shm_idx[tile_size];
+    __shared__ float shm_val[TILE_SIZE];
+    __shared__ int shm_idx[TILE_SIZE];
 
-    for (int i = 0; i < tile_size / BLOCK_SIZE && offset + i * BLOCK_SIZE < end - begin; i++) {
+    for (int i = 0; i < TILE_SIZE / BLOCK_SIZE && offset + i * BLOCK_SIZE < end - begin; i++) {
         shm_val[offset + i * BLOCK_SIZE] = val[begin + offset + i * BLOCK_SIZE];
         shm_idx[offset + i * BLOCK_SIZE] = idx[begin + offset + i * BLOCK_SIZE];
     }
@@ -70,7 +70,7 @@ __global__ void spmm_kernel_sparse(int *ptr, int *idx, float *val, float *vin, f
 
 void SpMMOpt::preprocess(float *vin, float *vout) {
     // TODO: your code
-    int tile_size = feat_in == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
+    int TILE_SIZE = feat_in == 32 ? TILE_SIZE_32 : TILE_SIZE_256;
     // 计算稠密行的个数和应该分配的总共的线程块数
     dense_rows = 0;
     dense_blocks_num = 0;
@@ -84,9 +84,9 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(h_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
     
     for (int i = 0; i < num_v; i++) {
-        if (h_ptr[i+1] - h_ptr[i] > tile_size) {
+        if (h_ptr[i+1] - h_ptr[i] > TILE_SIZE) {
             dense_rows += 1;
-            dense_blocks_num += (h_ptr[i+1] - h_ptr[i] - 1) / tile_size + 1;
+            dense_blocks_num += (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
         }
     }
     int *h_dense_bid2posi = new int[dense_blocks_num];
@@ -98,12 +98,12 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int temp = 0;
 
     for (int i = 0, j = 0, k = 0; i < num_v; i++) {
-        if (h_ptr[i+1] - h_ptr[i] > tile_size) {
-            temp = (h_ptr[i+1] - h_ptr[i] - 1) / tile_size + 1;
+        if (h_ptr[i+1] - h_ptr[i] > TILE_SIZE) {
+            temp = (h_ptr[i+1] - h_ptr[i] - 1) / TILE_SIZE + 1;
             for (int p = 0; p < temp; p++) {
                 h_dense_bid2posi[j+p] = i;
                 h_dense_bid2part[j+p] = p;
-                h_dense_min_idx[j+p] = h_idx[h_ptr[i] + p * tile_size];
+                h_dense_min_idx[j+p] = h_idx[h_ptr[i] + p * TILE_SIZE];
             }
             j += temp;
         } else {
