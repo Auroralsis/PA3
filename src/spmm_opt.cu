@@ -171,7 +171,10 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(h_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaMemcpy(h_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
 
-    mergeRowEntries(h_ptr, h_idx, h_val, num_v);
+    // mergeRowEntries(h_ptr, h_idx, h_val, num_v);
+    // checkCudaErrors(cudaMemcpy(d_ptr, h_ptr, (num_v + 1) * sizeof(int), cudaMemcpyHostToDevice));
+    // checkCudaErrors(cudaMemcpy(d_idx, h_idx, num_e * sizeof(int), cudaMemcpyHostToDevice));
+    // checkCudaErrors(cudaMemcpy(d_val, h_val, num_e * sizeof(float), cudaMemcpyHostToDevice));
 
     for (int i = 0; i < num_v; i++) {
         if (h_ptr[i+1] - h_ptr[i] > TILE_SIZE) {
@@ -228,9 +231,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(d_dense_bid2part, h_dense_bid2part, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_dense_min_idx, h_dense_min_idx, dense_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, sparse_blocks_num * sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_ptr, h_ptr, (num_v + 1) * sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_idx, h_idx, num_e * sizeof(int), cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_val, h_val, num_e * sizeof(float), cudaMemcpyHostToDevice));
+
 
     dense_grid.x = dense_blocks_num;
     dense_block.x = BLOCK_SIZE;
