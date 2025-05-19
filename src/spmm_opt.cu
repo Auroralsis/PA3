@@ -8,8 +8,8 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int bid = blockIdx.x;
     float result;
     int offset = tid % DENSE_BLOCK_SIZE;
-    __shared__ float shm_val[TILE_SIZE];
-    __shared__ int shm_idx[TILE_SIZE];
+    float shm_val[TILE_SIZE];
+    int shm_idx[TILE_SIZE];
 
     // 计算该线程块实际对应的需要计算的位置
     int order = dense_bid2order[bid];
@@ -21,7 +21,7 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     int part = order == 0 ? bid : (bid - sum_of_blocks[order-1]);
     int length = min(TILE_SIZE, end - begin - part * TILE_SIZE);
 
-    if (begin + part * TILE_SIZE + offset < end && offset < TILE_SIZE) {
+    if (offset < length) {
         shm_val[offset] = val[begin + part * TILE_SIZE + offset];
         shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
     }
