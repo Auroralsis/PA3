@@ -160,7 +160,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     delete[] h_ptr;
     delete[] h_idx;
     delete[] triples;
-    delete[] pairs;
+    // delete[] pairs;
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
