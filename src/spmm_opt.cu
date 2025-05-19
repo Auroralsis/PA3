@@ -127,18 +127,18 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
         h_dense_bid2part[i] = triples[i].second.second;
     }
 
-    using Pair = std::pair<int, int>;
-    Pair* pairs = new Pair[sparse_blocks_num];
-    for (int i = 0; i < sparse_blocks_num; ++i) {
-        pairs[i] = std::make_pair(h_sparse_min_idx[i], h_sparse_bid2posi[i]);
-    }
-    std::sort(pairs, pairs + sparse_blocks_num, [](const Pair& a, const Pair& b) {
-        return a.first < b.first;
-    });
-    for (int i = 0; i < sparse_blocks_num; ++i) {
-        h_sparse_min_idx[i] = pairs[i].first;
-        h_sparse_bid2posi[i] = pairs[i].second;
-    }
+    // using Pair = std::pair<int, int>;
+    // Pair* pairs = new Pair[sparse_blocks_num];
+    // for (int i = 0; i < sparse_blocks_num; ++i) {
+    //     pairs[i] = std::make_pair(h_sparse_min_idx[i], h_sparse_bid2posi[i]);
+    // }
+    // std::sort(pairs, pairs + sparse_blocks_num, [](const Pair& a, const Pair& b) {
+    //     return a.first < b.first;
+    // });
+    // for (int i = 0; i < sparse_blocks_num; ++i) {
+    //     h_sparse_min_idx[i] = pairs[i].first;
+    //     h_sparse_bid2posi[i] = pairs[i].second;
+    // }
 
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2posi, dense_blocks_num * sizeof(int)));
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2part, dense_blocks_num * sizeof(int)));
@@ -161,7 +161,6 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     delete[] h_idx;
     delete[] triples;
     delete[] pairs;
-
 }
 
 void SpMMOpt::run(float *vin, float *vout) {
@@ -169,5 +168,4 @@ void SpMMOpt::run(float *vin, float *vout) {
         d_dense_bid2posi, d_dense_bid2part);
     spmm_kernel_sparse<<<sparse_grid, sparse_block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in,
         d_sparse_bid2posi);
-    // spmm_kernel_placeholder<<<grid, block>>>(d_ptr, d_idx, d_val, vin, vout, num_v, feat_in);
 }
