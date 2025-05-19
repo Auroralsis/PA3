@@ -26,7 +26,7 @@ private:
     int dense_rows, dense_blocks_num, sparse_blocks_num;
 
     // 用于表示顺序对应的实际稀疏矩阵中的posi
-    int *d_dense_order2posi, *d_dense_bid2order, *d_sum_of_blocks;
+    int *d_dense_bid2posi, *d_dense_bid2part, *d_dense_min_idx;
     // 稀疏行直接用bid对应实际稀疏矩阵中的posi
     int *d_sparse_bid2posi;
 
