@@ -7,14 +7,14 @@ constexpr int BLOCK_SIZE = 32;
 void mergeRowEntries(int* h_ptr, int* h_idx, float* h_val, int num_v) {
     std::vector<int> new_ptr = {0};
     std::vector<int> new_idx;
-    std::vector<int> new_val;
+    std::vector<float> new_val;
 
     for (int i = 0; i < num_v; ++i) {
-        std::unordered_map<int, int> index_map;
+        std::unordered_map<int, float> index_map;
 
         for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
             int idx = h_idx[j];
-            int val = h_val[j];
+            float val = h_val[j];
             index_map[idx] += val;
         }
 
