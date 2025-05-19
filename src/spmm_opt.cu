@@ -87,7 +87,6 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     int *h_dense_bid2posi = new int[dense_blocks_num];
     int *h_dense_bid2part = new int[dense_blocks_num];
     int *h_dense_min_idx = new int[dense_blocks_num];
-    int *h_dense_max_idx = new int[dense_blocks_num];
 
     int *h_sparse_bid2posi = new int[num_v - dense_rows];
     int temp = 0;
@@ -99,7 +98,6 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
                 h_dense_bid2posi[j+p] = i;
                 h_dense_bid2part[j+p] = p;
                 h_dense_min_idx[j+p] = h_idx[h_ptr[i] + p * TILE_SIZE];
-                h_dense_max_idx[j+p] = h_idx[min(h_ptr[i] + (p+1) * TILE_SIZE, h_ptr[i+1])];
             }
             j += temp;
         } else {
@@ -111,24 +109,22 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
         }
     }
 
-    using Quadruple = std::tuple<int, int, int, int>;
-    Quadruple* quadruples = new Quadruple[dense_blocks_num];
+    using Triple = std::pair<int, std::pair<int, int>>;
+    Triple* triples = new Triple[dense_blocks_num];
+
     for (int i = 0; i < dense_blocks_num; ++i) {
-        quadruples[i] = std::make_tuple(h_dense_min_idx[i], h_dense_max_idx[i], h_dense_bid2posi[i], h_dense_bid2part[i]);
+        triples[i] = std::make_pair(h_dense_min_idx[i], std::make_pair(h_dense_bid2posi[i], h_dense_bid2part[i]));
     }
-    std::sort(quadruples, quadruples + dense_blocks_num, [](const Quadruple& a, const Quadruple& b) {
-        if (std::get<0>(a) == std::get<0>(b)) {
-            return std::get<1>(a) < std::get<1>(b);
-        }
-        return std::get<0>(a) < std::get<0>(b);
+    std::sort(triples, triples + dense_blocks_num, [](const Triple& a, const Triple& b) {
+        return a.first < b.first;
     });
     for (int i = 0; i < dense_blocks_num; ++i) {
-        h_dense_bid2posi[i] = std::get<2>(quadruples[i]);
-        h_dense_bid2part[i] = std::get<3>(quadruples[i]);
+        h_dense_min_idx[i] = triples[i].first;
+        h_dense_bid2posi[i] = triples[i].second.first;
+        h_dense_bid2part[i] = triples[i].second.second;
     }
 
-    // 清理动态分配的内存
-    delete[] quadruples;
+    delete[] triples;
 
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2posi, dense_blocks_num * sizeof(int)));
     checkCudaErrors(cudaMalloc2((void **)&d_dense_bid2part, dense_blocks_num * sizeof(int)));
