@@ -6,6 +6,7 @@
         "limits": "cpp",
         "functional": "cpp",
         "typeinfo": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "tuple": "cpp"
     }
 }
