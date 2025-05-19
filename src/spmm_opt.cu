@@ -1,13 +1,13 @@
 #include "spmm_opt.h"
 
-const int TILE_SIZE = 32;
-const int DENSE_BLOCK_SIZE = 32;
+const int TILE_SIZE = 64;
+const int BLOCK_SIZE = 32;
 
 __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int bid = blockIdx.x;
     float result;
-    int offset = tid % DENSE_BLOCK_SIZE;
+    int offset = tid % BLOCK_SIZE;
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
@@ -19,13 +19,13 @@ __global__ void spmm_kernel_dense_256(int *ptr, int *idx, float *val, float *vin
     
     int length = min(TILE_SIZE, end - begin - part * TILE_SIZE);
 
-    if (offset < length) {
-        shm_val[offset] = val[begin + part * TILE_SIZE + offset];
-        shm_idx[offset] = idx[begin + part * TILE_SIZE + offset];
+    for (int i = 0; i < TILE_SIZE / BLOCK_SIZE && offset + i * BLOCK_SIZE < length; i++) {
+        shm_val[offset + i * BLOCK_SIZE] = val[begin + part * TILE_SIZE + offset + i * BLOCK_SIZE];
+        shm_idx[offset + i * BLOCK_SIZE] = idx[begin + part * TILE_SIZE + offset + i * BLOCK_SIZE];
     }
     __syncthreads();
 
-    for (int j = 0; j < INFEATURE; j += DENSE_BLOCK_SIZE) {
+    for (int j = 0; j < INFEATURE; j += BLOCK_SIZE) {
         result = 0.0f;
         #pragma unroll
         for (int i = 0; i < length; i++) {
@@ -49,11 +49,11 @@ __global__ void spmm_kernel_sparse_256(int *ptr, int *idx, float *val, float *vi
     __shared__ float shm_val[TILE_SIZE];
     __shared__ int shm_idx[TILE_SIZE];
 
-    if (offset < end - begin) {
-        shm_val[offset] = val[begin + offset];
-        shm_idx[offset] = idx[begin + offset];
+    for (int i = 0; i < TILE_SIZE / BLOCK_SIZE && offset + i * BLOCK_SIZE < end - begin; i++) {
+        shm_val[offset + i * BLOCK_SIZE] = val[begin + offset + i * BLOCK_SIZE];
+        shm_idx[offset + i * BLOCK_SIZE] = idx[begin + offset + i * BLOCK_SIZE];
     }
-    __syncwarp();
+    __syncthreads();
 
     for (int j = 0; j < INFEATURE; j += 32) {
         result = 0.0f;
@@ -137,7 +137,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(d_sparse_bid2posi, h_sparse_bid2posi, (num_v - dense_rows) * sizeof(int), cudaMemcpyHostToDevice));
 
     dense_grid.x = dense_blocks_num;
-    dense_block.x = DENSE_BLOCK_SIZE;
+    dense_block.x = BLOCK_SIZE;
 
     sparse_grid.x = sparse_blocks_num;
     sparse_block.x = 32;
