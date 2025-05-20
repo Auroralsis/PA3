@@ -9,47 +9,34 @@ void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v, int num
     int* new_h_ptr = new int[num_v + 1];
     int* new_h_idx = new int[num_e];
     float* new_h_val = new float[num_e];
-
     int current_pos = 0;
     new_h_ptr[0] = 0;
-
     for (int i = 0; i < num_v; ++i) {
         int start = h_ptr[i];
         int end = h_ptr[i + 1];
-
         if (start < end) {
-            // Start with the first element in this segment
             int last_idx = h_idx[start];
             float sum = h_val[start];
-
             for (int j = start + 1; j < end; ++j) {
                 if (h_idx[j] == last_idx) {
-                    // If this index is the same as the last, sum the values
                     sum += h_val[j];
                 } else {
-                    // Otherwise, store the accumulated sum for the last index
                     new_h_idx[current_pos] = last_idx;
                     new_h_val[current_pos] = sum;
                     current_pos++;
-
-                    // Move to the next index
                     last_idx = h_idx[j];
                     sum = h_val[j];
                 }
             }
-            // Don't forget to store the sum for the last group
             new_h_idx[current_pos] = last_idx;
             new_h_val[current_pos] = sum;
             current_pos++;
         }
-
         new_h_ptr[i + 1] = current_pos;
     }
-
     std::swap(h_ptr, new_h_ptr);
     std::swap(h_idx, new_h_idx);
     std::swap(h_val, new_h_val);
-
     delete[] new_h_ptr;
     delete[] new_h_idx;
     delete[] new_h_val;
