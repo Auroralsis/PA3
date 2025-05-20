@@ -6,40 +6,30 @@ constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
 void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num_e) {
-    int* new_ptr = new int[num_v + 1];
-    int* new_idx = new int[num_e];
-    float* new_val = new float[num_e];
-    
+    int *new_ptr = new int[num_v];
+    int *new_idx = new int[num_e];
+    float *new_val = new float[num_e];
     new_ptr[0] = 0;
-    int k = 0;
-    for (int i = 0; i < num_v; ++i) {
-        int temp = (*h_idx)[(*h_ptr)[i]];
-        float temp_val = (*h_val)[(*h_ptr)[i]];
-        for (int j = (*h_ptr)[i] + 1; j < (*h_ptr)[i + 1]; j++) {
-            int idx = (*h_idx)[j];
+    for (int i = 0, k = 0; i < num_v; ++i) {
+        int temp = (*h_idx)[*h_ptr[i]];
+        for (int j = *h_ptr[i]; j < *h_ptr[i + 1]; j++) {
+            int idx = *h_idx[j];
             if (idx == temp) {
-                // Merge values with the same index
-                temp_val += (*h_val)[j];
+                if (j == *h_ptr[i]) {
+                    new_val[k] = *h_val[j];
+                } else {
+                    new_val[k] += *h_val[j];
+                }
             } else {
-                new_idx[k] = temp;
-                new_val[k] = temp_val;
                 k++;
-                
                 temp = idx;
-                temp_val = (*h_val)[j];
+                new_val[k] = *h_val[j];
             }
+            new_idx[k] = idx;
         }
-        // Add the last set of values for the current row
-        new_idx[k] = temp;
-        new_val[k] = temp_val;
+        new_ptr[i+1] = k;
         k++;
-        new_ptr[i + 1] = k;
     }
-    
-    delete[] *h_ptr;
-    delete[] *h_idx;
-    delete[] *h_val;
-    
     *h_ptr = new_ptr;
     *h_idx = new_idx;
     *h_val = new_val;
