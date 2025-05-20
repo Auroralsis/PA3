@@ -12,18 +12,18 @@ void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num
     new_ptr[0] = 0;
     for (int i = 0, k = 0; i < num_v; ++i) {
         int temp = (*h_idx)[*h_ptr[i]];
-        for (int j = *h_ptr[i]; j < *h_ptr[i + 1]; j++) {
-            int idx = *h_idx[j];
+        for (int j = (*h_ptr)[i]; j < (*h_ptr)[i + 1]; j++) {
+            int idx = (*h_idx)[j];
             if (idx == temp) {
-                if (j == *h_ptr[i]) {
-                    new_val[k] = *h_val[j];
+                if (j == (*h_ptr)[i]) {
+                    new_val[k] = (*h_val)[j];
                 } else {
-                    new_val[k] += *h_val[j];
+                    new_val[k] += (*h_val)[j];
                 }
             } else {
                 k++;
                 temp = idx;
-                new_val[k] = *h_val[j];
+                new_val[k] = (*h_val)[j];
             }
             new_idx[k] = idx;
         }
