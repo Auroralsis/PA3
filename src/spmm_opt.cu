@@ -27,8 +27,8 @@ void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num
             }
             new_idx[k] = idx;
         }
-        new_ptr[i+1] = k;
         k++;
+        new_ptr[i+1] = k;
     }
     *h_ptr = new_ptr;
     *h_idx = new_idx;
