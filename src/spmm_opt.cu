@@ -6,7 +6,7 @@ constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
 void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num_e) {
-    int *new_ptr = new int[num_v];
+    int *new_ptr = new int[num_v + 1];
     int *new_idx = new int[num_e];
     float *new_val = new float[num_e];
     new_ptr[0] = 0;
