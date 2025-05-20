@@ -18,10 +18,8 @@ void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num
         for (int j = (*h_ptr)[i] + 1; j < (*h_ptr)[i + 1]; j++) {
             int idx = (*h_idx)[j];
             if (idx == temp) {
-                // Merge values with the same index
                 temp_val += (*h_val)[j];
             } else {
-                // Push current non-duplicate into new arrays
                 new_idx[k] = temp;
                 new_val[k] = temp_val;
                 k++;
@@ -33,9 +31,8 @@ void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num
         // Add the last set of values for the current row
         new_idx[k] = temp;
         new_val[k] = temp_val;
-        k++;
-        
         new_ptr[i + 1] = k;
+        k++;
     }
     
     delete[] *h_ptr;
