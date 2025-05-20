@@ -5,30 +5,34 @@ constexpr int TILE_SIZE_32 = 64;
 constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
-void mergeRowEntries(int* h_ptr, int* h_idx, float* h_val, int num_v) {
-    std::vector<int> new_ptr = {0};
-    std::vector<int> new_idx;
-    std::vector<float> new_val;
-
-    for (int i = 0; i < num_v; ++i) {
-        std::map<int, float> index_map;
-
-        for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
+void mergeRowEntries(int* h_ptr, int* h_idx, float* h_val, int num_v, int num_e) {
+    int *new_ptr = new int[num_v];
+    int *new_idx = new int[num_e];
+    float *new_val = new float[num_e];
+    new_ptr[0] = 0;
+    for (int i = 0, k = 0; i < num_v; ++i) {
+        int temp = h_idx[h_ptr[i]];
+        for (int j = h_ptr[i]; j < h_ptr[i + 1]; j++) {
             int idx = h_idx[j];
-            float val = h_val[j];
-            index_map[idx] += val;
+            if (idx == temp) {
+                if (j == h_ptr[i]) {
+                    new_val[k] = h_val[j];
+                } else {
+                    new_val[k] += h_val[j];
+                }
+            } else {
+                k++;
+                temp = idx;
+                new_val[k] = h_val[j];
+            }
+            new_idx[k] = idx;
         }
-
-        for (auto& entry : index_map) {
-            new_idx.push_back(entry.first);
-            new_val.push_back(entry.second);
-
-        }
-        new_ptr.push_back(static_cast<int>(new_idx.size()));
+        new_ptr[i+1] = k;
+        k++;
     }
-    std::copy(new_ptr.begin(), new_ptr.end(), h_ptr);
-    std::copy(new_idx.begin(), new_idx.end(), h_idx);
-    std::copy(new_val.begin(), new_val.end(), h_val);
+    h_ptr = new_ptr;
+    h_idx = new_idx;
+    h_val = new_val;
 }
 
 __global__ void spmm_kernel_dense_32(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
