@@ -5,23 +5,10 @@ constexpr int TILE_SIZE_32 = 64;
 constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
-void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v) {
-    // Step 1: Calculate the size for the new arrays
-    int total_size = 0;
-    for (int i = 0; i < num_v; ++i) {
-        std::map<int, float> index_map;
-        for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
-            index_map[h_idx[j]] += h_val[j];
-        }
-        total_size += index_map.size();
-    }
-
-    // Allocate new arrays for results
+void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v, int num_e) {
     int* new_h_ptr = new int[num_v + 1];
-    int* new_h_idx = new int[total_size];
-    float* new_h_val = new float[total_size];
-
-    // Step 2: Fill the new arrays
+    int* new_h_idx = new int[num_e];
+    float* new_h_val = new float[num_e];
     int current_pos = 0;
     new_h_ptr[0] = 0;
     for (int i = 0; i < num_v; ++i) {
@@ -36,13 +23,9 @@ void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v) {
         }
         new_h_ptr[i + 1] = current_pos;
     }
-
-    // Step 3: Swap the old arrays with the new ones
     std::swap(h_ptr, new_h_ptr);
     std::swap(h_idx, new_h_idx);
     std::swap(h_val, new_h_val);
-
-    // Free the old arrays
     delete[] new_h_ptr;
     delete[] new_h_idx;
     delete[] new_h_val;
@@ -191,7 +174,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(h_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaMemcpy(h_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
 
-    mergeRowEntries(h_ptr, h_idx, h_val, num_v);
+    mergeRowEntries(h_ptr, h_idx, h_val, num_v, num_e);
     num_e = h_ptr[num_v];
     checkCudaErrors(cudaMemcpy(d_ptr, h_ptr, (num_v + 1) * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_idx, h_idx, num_e * sizeof(int), cudaMemcpyHostToDevice));
