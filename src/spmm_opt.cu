@@ -1,4 +1,5 @@
 #include "spmm_opt.h"
+#include <map>
 
 constexpr int TILE_SIZE_32 = 64;
 constexpr int TILE_SIZE_256 = 32;
@@ -10,7 +11,7 @@ void mergeRowEntries(int* h_ptr, int* h_idx, float* h_val, int num_v) {
     std::vector<float> new_val;
 
     for (int i = 0; i < num_v; ++i) {
-        std::unordered_map<int, float> index_map;
+        std::map<int, float> index_map;
 
         for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
             int idx = h_idx[j];
