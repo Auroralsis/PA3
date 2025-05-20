@@ -9,7 +9,7 @@ void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v) {
     // Step 1: Calculate the size for the new arrays
     int total_size = 0;
     for (int i = 0; i < num_v; ++i) {
-        std::map<int, int> index_map;
+        std::map<int, float> index_map;
         for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
             index_map[h_idx[j]] += h_val[j];
         }
@@ -19,13 +19,13 @@ void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v) {
     // Allocate new arrays for results
     int* new_h_ptr = new int[num_v + 1];
     int* new_h_idx = new int[total_size];
-    int* new_h_val = new int[total_size];
+    float* new_h_val = new float[total_size];
 
     // Step 2: Fill the new arrays
     int current_pos = 0;
     new_h_ptr[0] = 0;
     for (int i = 0; i < num_v; ++i) {
-        std::map<int, int> index_map;
+        std::map<int, float> index_map;
         for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
             index_map[h_idx[j]] += h_val[j];
         }
