@@ -6,22 +6,29 @@ constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
 void mergeRowEntries(int* h_ptr, int* h_idx, float* h_val, int num_v) {
-    int current_position = 0;
+    std::vector<int> new_ptr = {0};
+    std::vector<int> new_idx;
+    std::vector<float> new_val;
+
     for (int i = 0; i < num_v; ++i) {
         std::map<int, float> index_map;
+
         for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
             int idx = h_idx[j];
             float val = h_val[j];
             index_map[idx] += val;
         }
-        for (const auto& entry : index_map) {
-            h_idx[current_position] = entry.first;
-            h_val[current_position] = entry.second;
-            ++current_position;
+
+        for (auto& entry : index_map) {
+            new_idx.push_back(entry.first);
+            new_val.push_back(entry.second);
+
         }
-        h_ptr[i] = (i == 0) ? 0 : h_ptr[i-1] + static_cast<int>(index_map.size());
+        new_ptr.push_back(static_cast<int>(new_idx.size()));
     }
-    h_ptr[num_v] = current_position;
+    std::copy(new_ptr.begin(), new_ptr.end(), h_ptr);
+    std::copy(new_idx.begin(), new_idx.end(), h_idx);
+    std::copy(new_val.begin(), new_val.end(), h_val);
 }
 
 __global__ void spmm_kernel_dense_32(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
