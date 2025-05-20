@@ -5,35 +5,49 @@ constexpr int TILE_SIZE_32 = 64;
 constexpr int TILE_SIZE_256 = 32;
 constexpr int BLOCK_SIZE = 32;
 
-void mergeRowEntries(int** h_ptr, int** h_idx, float** h_val, int num_v, int num_e) {
-    int *new_ptr = new int[num_v + 1];
-    int *new_idx = new int[num_e];
-    float *new_val = new float[num_e];
-    new_ptr[0] = 0;
-    for (int i = 0, k = 0; i < num_v; ++i) {
-        int temp = (*h_idx)[*h_ptr[i]];
-        for (int j = (*h_ptr)[i]; j < (*h_ptr)[i + 1]; j++) {
-            int idx = (*h_idx)[j];
-            if (idx == temp) {
-                if (j == (*h_ptr)[i]) {
-                    new_val[k] = (*h_val)[j];
-                } else {
-                    new_val[k] += (*h_val)[j];
-                }
-            } else {
-                k++;
-                temp = idx;
-                new_val[k] = (*h_val)[j];
-            }
-            new_idx[k] = idx;
+void mergeRowEntries(int*& h_ptr, int*& h_idx, float*& h_val, int num_v) {
+    // Step 1: Calculate the size for the new arrays
+    int total_size = 0;
+    for (int i = 0; i < num_v; ++i) {
+        std::map<int, int> index_map;
+        for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
+            index_map[h_idx[j]] += h_val[j];
         }
-        k++;
-        new_ptr[i+1] = k;
+        total_size += index_map.size();
     }
-    *h_ptr = new_ptr;
-    *h_idx = new_idx;
-    *h_val = new_val;
+
+    // Allocate new arrays for results
+    int* new_h_ptr = new int[num_v + 1];
+    int* new_h_idx = new int[total_size];
+    int* new_h_val = new int[total_size];
+
+    // Step 2: Fill the new arrays
+    int current_pos = 0;
+    new_h_ptr[0] = 0;
+    for (int i = 0; i < num_v; ++i) {
+        std::map<int, int> index_map;
+        for (int j = h_ptr[i]; j < h_ptr[i + 1]; ++j) {
+            index_map[h_idx[j]] += h_val[j];
+        }
+        for (const auto& entry : index_map) {
+            new_h_idx[current_pos] = entry.first;
+            new_h_val[current_pos] = entry.second;
+            ++current_pos;
+        }
+        new_h_ptr[i + 1] = current_pos;
+    }
+
+    // Step 3: Swap the old arrays with the new ones
+    std::swap(h_ptr, new_h_ptr);
+    std::swap(h_idx, new_h_idx);
+    std::swap(h_val, new_h_val);
+
+    // Free the old arrays
+    delete[] new_h_ptr;
+    delete[] new_h_idx;
+    delete[] new_h_val;
 }
+
 
 __global__ void spmm_kernel_dense_32(int *ptr, int *idx, float *val, float *vin, float *vout,int num_v, int INFEATURE, int *dense_bid2posi, int *dense_bid2part) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
@@ -177,7 +191,7 @@ void SpMMOpt::preprocess(float *vin, float *vout) {
     checkCudaErrors(cudaMemcpy(h_idx, d_idx, num_e * sizeof(int), cudaMemcpyDeviceToHost));
     checkCudaErrors(cudaMemcpy(h_val, d_val, num_e * sizeof(float), cudaMemcpyDeviceToHost));
 
-    mergeRowEntries(&h_ptr, &h_idx, &h_val, num_v, num_e);
+    mergeRowEntries(h_ptr, h_idx, h_val, num_v);
     num_e = h_ptr[num_v];
     checkCudaErrors(cudaMemcpy(d_ptr, h_ptr, (num_v + 1) * sizeof(int), cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy(d_idx, h_idx, num_e * sizeof(int), cudaMemcpyHostToDevice));
